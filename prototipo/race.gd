@@ -13,12 +13,17 @@ const POST_SPACING := 20.0 # m entre postes de referencia
 
 # A camera fica A FRENTE dos carros, baixa, olhando para tras: e por isso que o
 # jogador ve a FRENTE do carro, que e o angulo da arte.
-# CAM_X fica quase no meio das duas pistas de proposito -- deslocar a camera para
-# a lateral alinha as duas pistas na linha de visao e um carro esconde o outro.
-const CAM_X := -1.1        # deslocamento lateral, so o bastante para nao ser simetrico
-const CAM_Y := 1.15        # altura, quase na linha dos farois
-const CAM_AHEAD_DUAL := 19.0
-const CAM_AHEAD_SOLO := 15.0
+#
+# CAM_ANGLE e a peca critica: a arte e uma foto em 3/4, entao a PISTA tem que fugir
+# na mesma diagonal. Com a camera no eixo da pista o asfalto corre reto para um ponto
+# de fuga central e o carro parece atravessado nele. O angulo da camera precisa casar
+# com o angulo em que a foto foi tirada.
+const CAM_ANGLE_DEG := 38.0  # graus fora do eixo da pista
+const CAM_SIDE := 1.0        # lado da camera (+1 = direita da pista, -1 = esquerda)
+const CAM_Y := 1.15          # altura, quase na linha dos farois
+const CAM_DIST_DUAL := 15.0
+const CAM_DIST_SOLO := 14.0
+const ROAD_W := 7.0        # meia largura do asfalto
 
 const CAR_PIXEL_SIZE := 0.0035  # escala da foto -> metros
 const CAR_Y := 1.15             # centro do sprite para as rodas tocarem o chao
@@ -82,12 +87,23 @@ func _build_world() -> void:
 	add_child(sun)
 
 	var track_len := Tuning.RACE_DISTANCE + 300.0
-	add_child(_box(Vector3(0, -0.25, track_len * 0.5 - 60.0),
-		Vector3(22, 0.5, track_len), Color(0.13, 0.14, 0.16)))
+	var mid := track_len * 0.5 - 60.0
 
-	# faixa divisoria
-	add_child(_box(Vector3(0, 0.01, track_len * 0.5 - 60.0),
-		Vector3(0.25, 0.52, track_len), Color(0.30, 0.30, 0.33)))
+	# Terreno largo: com a camera em 3/4 ela sai de cima do asfalto, e sem chao
+	# embaixo dela a pista flutua no vazio.
+	add_child(_box(Vector3(0, -0.45, mid), Vector3(90, 0.5, track_len),
+		Color(0.09, 0.10, 0.12)))
+
+	# asfalto
+	add_child(_box(Vector3(0, -0.15, mid), Vector3(ROAD_W * 2.0, 0.5, track_len),
+		Color(0.16, 0.17, 0.19)))
+
+	# bordas e faixa divisoria: pintura rente ao chao, nao guia. Sao elas que
+	# desenham a diagonal da pista.
+	for x in [-ROAD_W, 0.0, ROAD_W]:
+		var w := 0.22 if x == 0.0 else 0.40
+		add_child(_box(Vector3(x, 0.11, mid), Vector3(w, 0.04, track_len),
+			Color(0.58, 0.59, 0.63)))
 
 	# postes de referencia -- a leitura de velocidade vem daqui
 	var n := int(Tuning.RACE_DISTANCE / POST_SPACING) + 4
@@ -95,13 +111,13 @@ func _build_world() -> void:
 		var z := i * POST_SPACING
 		var c := Color(0.75, 0.75, 0.78) if i % 5 == 0 else Color(0.32, 0.33, 0.36)
 		var h := 2.4 if i % 5 == 0 else 1.3
-		add_child(_box(Vector3(-10.0, h * 0.5, z), Vector3(0.35, h, 0.35), c))
-		add_child(_box(Vector3(10.0, h * 0.5, z), Vector3(0.35, h, 0.35), c))
+		add_child(_box(Vector3(-ROAD_W - 1.8, h * 0.5, z), Vector3(0.35, h, 0.35), c))
+		add_child(_box(Vector3(ROAD_W + 1.8, h * 0.5, z), Vector3(0.35, h, 0.35), c))
 
-	add_child(_box(Vector3(0, 0.02, 0), Vector3(22, 0.55, 1.0), Color(0.85, 0.85, 0.9)))
-	add_child(_box(Vector3(0, 0.02, Tuning.RACE_DISTANCE), Vector3(22, 0.6, 2.0),
+	add_child(_box(Vector3(0, 0.02, 0), Vector3(ROAD_W * 2.0, 0.55, 1.0), Color(0.85, 0.85, 0.9)))
+	add_child(_box(Vector3(0, 0.02, Tuning.RACE_DISTANCE), Vector3(ROAD_W * 2.0, 0.6, 2.0),
 		Color(0.95, 0.72, 0.15)))
-	for side in [-11.0, 11.0]:
+	for side in [-ROAD_W - 0.6, ROAD_W + 0.6]:
 		add_child(_box(Vector3(side, 4.0, Tuning.RACE_DISTANCE), Vector3(0.6, 8.0, 0.6),
 			Color(0.95, 0.72, 0.15)))
 
@@ -459,20 +475,24 @@ func _update_camera(delta: float) -> void:
 		return
 	var gap: float = player.pos - rival.pos
 	var dual: bool = absf(gap) <= DUAL_GAP and state != State.MENU
-	var focus: float = (player.pos + rival.pos) * 0.5 if dual else player.pos
-	var ahead: float = CAM_AHEAD_DUAL if dual else CAM_AHEAD_SOLO
+	var dist: float = CAM_DIST_DUAL if dual else CAM_DIST_SOLO
 
 	# A frente dos carros, olhando para tras: os carros vem em cima da camera.
 	# A camera se ancora no LIDER, nunca no jogador: ancorada no jogador, um rival
-	# que abre mais que CAM_AHEAD ultrapassa a camera e desaparece do quadro.
+	# que abre mais que a distancia da camera a ultrapassa e some do quadro.
 	# Ancorada no lider, quem esta atras aparece menor e mais longe -- a propria
 	# perspectiva vira leitura de quem esta ganhando.
 	var anchor: float = maxf(player.pos, rival.pos)
-	var focus_x: float = 0.0 if dual else -LANE * 0.55
-	var want := Vector3(CAM_X, CAM_Y, anchor + ahead)
+	var target := Vector3(0.0 if dual else -LANE * 0.55, CAR_Y * 0.95, anchor)
+
+	var ang := deg_to_rad(CAM_ANGLE_DEG)
+	var want := Vector3(
+		target.x + CAM_SIDE * sin(ang) * dist,
+		CAM_Y,
+		anchor + cos(ang) * dist)
 	var k: float = 1.0 - exp(-6.0 * delta)
 	cam.global_position = cam.global_position.lerp(want, k)
-	cam.look_at(Vector3(focus_x, CAR_Y * 0.95, anchor - 8.0))
+	cam.look_at(target)
 
 
 func _update_hud(delta: float) -> void:

@@ -41,9 +41,18 @@ por `modulate`, então uma imagem serve para qualquer cor) e **sem rodas**.
 A câmera fica **à frente dos carros olhando para trás**, que é por isso que você vê a
 frente do carro: é o ângulo em que a arte foi produzida.
 
+`CAM_ANGLE_DEG` (38°) é a constante mais delicada do render: como a foto é 3/4, a pista
+precisa fugir na mesma diagonal. Com a câmera no eixo da pista o asfalto corre reto e o
+carro parece andar de lado. `CAM_SIDE` escolhe de que lado a câmera fica — tem que ser o
+lado do flanco que aparece na foto, senão carro e pista apontam para direções opostas.
+
 Carro novo: jogue o `.png` em `cars/` e adicione o nome (sem extensão) em
 [`cars.gd`](cars.gd). A lista é explícita de propósito — varrer `res://` com `DirAccess`
 se comporta diferente no editor e no build exportado.
+
+> **Falta escala por carro.** Todas as fotos têm o carro preenchendo o quadro, então
+> `CAR_PIXEL_SIZE` único faz a Kombi sair do tamanho de uma Miata. Precisa de um fator
+> de escala por carroceria, calibrado no olho.
 
 > **Falta a arte de roda.** As caixas de roda estão vazias nas fotos, e isso é
 > intencional: Roda é um slot de equipamento e a arte entra composta por cima. Enquanto

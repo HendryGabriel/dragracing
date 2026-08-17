@@ -76,7 +76,9 @@ Automático é acessibilidade real: o jogador casual joga a run inteira nele e f
 
 **A câmera se ancora no líder, não no jogador.** Ancorada no jogador, um rival que abre mais que a distância da câmera a ultrapassa e some do quadro — o pior momento possível para perder a informação de vista. Ancorada no líder, quem está atrás aparece menor e mais ao fundo, e a própria perspectiva vira leitura de quem está ganhando.
 
-**A câmera fica quase no meio das duas pistas.** Deslocá-la para a lateral alinha as duas pistas na linha de visão e um carro esconde o outro — o que destrói justamente a leitura lado a lado que a corrida paralela existe para dar.
+**O ângulo da câmera é ditado pela arte, não pelo gosto.** A carroceria é uma foto em 3/4, então a **pista tem que fugir na mesma diagonal**. Com a câmera alinhada ao eixo da pista, o asfalto corre reto para um ponto de fuga central enquanto o carro está virado 38° — e o carro parece atravessado na pista, andando de lado. A câmera precisa ficar deslocada do eixo no mesmo ângulo em que a foto foi tirada (~38°), do lado que corresponde ao flanco visível na arte.
+
+Isso amarra três coisas que não podem ser mexidas isoladamente: **ângulo da foto = ângulo da câmera = diagonal da pista**. Trocar o fornecedor de arte por fotos em outro ângulo obriga a mexer na câmera junto.
 
 **Indicador de gap sempre visível no HUD**, inclusive no enquadramento duplo. O jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
 

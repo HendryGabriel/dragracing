@@ -33,6 +33,23 @@ godot --path prototipo
 - Passar de **80% de calor** entra na faixa vermelha: o dado começa a rolar. Fundiu, é DNF.
 - Nitro conservador (parar antes dos 80%) rende ~0,4s **sem risco**. Ir além é aposta.
 
+## Carros
+
+As carrocerias ficam em [`cars/`](cars/) — 25 fotos em 3/4 frontal, brancas (tingidas
+por `modulate`, então uma imagem serve para qualquer cor) e **sem rodas**.
+
+A câmera fica **à frente dos carros olhando para trás**, que é por isso que você vê a
+frente do carro: é o ângulo em que a arte foi produzida.
+
+Carro novo: jogue o `.png` em `cars/` e adicione o nome (sem extensão) em
+[`cars.gd`](cars.gd). A lista é explícita de propósito — varrer `res://` com `DirAccess`
+se comporta diferente no editor e no build exportado.
+
+> **Falta a arte de roda.** As caixas de roda estão vazias nas fotos, e isso é
+> intencional: Roda é um slot de equipamento e a arte entra composta por cima. Enquanto
+> ela não existe, os carros correm sem roda. Precisa de PNGs de pneu/roda com o mesmo
+> ângulo 3/4 e um ponto de ancoragem por carroceria.
+
 ## Ajustar
 
 Todos os números vivem em [`tuning.gd`](tuning.gd). Edite, salve, rode de novo.

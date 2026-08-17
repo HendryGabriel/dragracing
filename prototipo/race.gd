@@ -7,9 +7,21 @@ extends Node3D
 
 enum State { MENU, STAGING, RACING, RESULT }
 
-const LANE := 2.4          # afastamento lateral de cada carro
+const LANE := 3.4          # afastamento lateral de cada carro
 const DUAL_GAP := 14.0     # m -- ate aqui a camera enquadra os dois
 const POST_SPACING := 20.0 # m entre postes de referencia
+
+# A camera fica A FRENTE dos carros, baixa, olhando para tras: e por isso que o
+# jogador ve a FRENTE do carro, que e o angulo da arte.
+# CAM_X fica quase no meio das duas pistas de proposito -- deslocar a camera para
+# a lateral alinha as duas pistas na linha de visao e um carro esconde o outro.
+const CAM_X := -1.1        # deslocamento lateral, so o bastante para nao ser simetrico
+const CAM_Y := 1.15        # altura, quase na linha dos farois
+const CAM_AHEAD_DUAL := 19.0
+const CAM_AHEAD_SOLO := 15.0
+
+const CAR_PIXEL_SIZE := 0.0035  # escala da foto -> metros
+const CAR_Y := 1.15             # centro do sprite para as rodas tocarem o chao
 
 var state := State.MENU
 var player := Car.new()
@@ -21,13 +33,16 @@ var rev := 0.0             # ponteiro da largada
 var revving := false
 var ai_shift_point := Tuning.AI_SHIFT_POINT
 var auto := false          # corrida automatica (checagem end-to-end)
+var _shots: Array = []     # instantes (s) para capturar print no modo --autorace
 var flash := ""            # feedback de troca
 var flash_t := 0.0
 var peak_heat := 0.0
 
 var cam: Camera3D
-var car_mesh: Node3D
-var rival_mesh: Node3D
+var car_sprite: Sprite3D
+var rival_sprite: Sprite3D
+var player_car := "mustang 1969"
+var rival_car := "golf gti"
 var hud: Dictionary = {}
 
 
@@ -41,6 +56,7 @@ func _ready() -> void:
 	#   godot --headless --quit-after 2200 -- --autorace
 	if "--autorace" in OS.get_cmdline_user_args():
 		auto = true
+		_shots = [1.5, 8.0, 20.0, 28.0]
 		_start_staging()
 		rev = 0.70
 		_start_race()
@@ -52,8 +68,8 @@ func _build_world() -> void:
 	e.background_mode = Environment.BG_COLOR
 	e.background_color = Color(0.04, 0.05, 0.07)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.35, 0.38, 0.45)
-	e.ambient_light_energy = 0.6
+	e.ambient_light_color = Color(0.42, 0.46, 0.55)
+	e.ambient_light_energy = 1.1
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.04, 0.05, 0.07)
 	e.fog_density = 0.0035
@@ -89,10 +105,10 @@ func _build_world() -> void:
 		add_child(_box(Vector3(side, 4.0, Tuning.RACE_DISTANCE), Vector3(0.6, 8.0, 0.6),
 			Color(0.95, 0.72, 0.15)))
 
-	car_mesh = _car_body(Color(0.20, 0.70, 1.0))
-	rival_mesh = _car_body(Color(1.0, 0.35, 0.25))
-	add_child(car_mesh)
-	add_child(rival_mesh)
+	car_sprite = _car_sprite(Color(0.62, 0.80, 1.0))
+	rival_sprite = _car_sprite(Color(1.0, 0.66, 0.58))
+	add_child(car_sprite)
+	add_child(rival_sprite)
 
 	cam = Camera3D.new()
 	cam.fov = 78.0
@@ -112,15 +128,17 @@ func _box(pos: Vector3, size: Vector3, col: Color) -> MeshInstance3D:
 	return m
 
 
-func _car_body(col: Color) -> Node3D:
-	var root := Node3D.new()
-	root.add_child(_box(Vector3(0, 0.65, 0), Vector3(1.9, 1.0, 4.4), col))
-	root.add_child(_box(Vector3(0, 1.35, -0.3), Vector3(1.6, 0.55, 2.0), col.darkened(0.35)))
-	for x in [-0.95, 0.95]:
-		for z in [-1.5, 1.5]:
-			root.add_child(_box(Vector3(x, 0.35, z), Vector3(0.35, 0.7, 0.7),
-				Color(0.08, 0.08, 0.09)))
-	return root
+## A carroceria e um sprite: a arte e foto 3/4 frontal, entao o carro sempre
+## apresenta a frente para a camera (billboard travado no eixo Y, para nao deitar).
+func _car_sprite(tint: Color) -> Sprite3D:
+	var s := Sprite3D.new()
+	s.pixel_size = CAR_PIXEL_SIZE
+	s.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	s.alpha_scissor_threshold = 0.35
+	s.modulate = tint
+	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	return s
 
 
 # ---------------------------------------------------------------- hud
@@ -253,7 +271,8 @@ func _to_menu() -> void:
 	var i := 1
 	for name in Tuning.PROFILES:
 		var b: Array = Tuning.PROFILES[name]
-		t += "  [%d]  %-14s  baixa %3.0f  /  media %3.0f  /  alta %3.0f\n" % [i, name, b[0], b[1], b[2]]
+		t += "  [%d]  %-14s  baixa %3.0f / media %3.0f / alta %3.0f    %s\n" \
+			% [i, name, b[0], b[1], b[2], Cars.BY_PROFILE.get(name, "?")]
 		i += 1
 	t += "\nbaixa = largada (1a-2a)   media = aceleracao (3a-5a)   alta = topo (6a-7a)\n"
 	t += "\nESPACO segura/solta = largada e troca de marcha    SHIFT = nitro\nR = repetir    ESC = sair"
@@ -282,8 +301,13 @@ func _start_staging() -> void:
 	rival.set_launch(randf_range(0.58, 0.84))
 	ai_shift_point = Tuning.AI_SHIFT_POINT
 
-	hud.panel_text.text = "%s  x  %s\n\nSEGURE ESPACO para subir o giro.\nSOLTE na faixa verde para largar." \
-		% [player_profile, rival_profile]
+	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
+	rival_car = Cars.random_name(rival.rng)
+	car_sprite.texture = Cars.texture(player_car)
+	rival_sprite.texture = Cars.texture(rival_car)
+
+	hud.panel_text.text = "%s  (%s)\nx\n%s  (%s)\n\nSEGURE ESPACO para subir o giro.\nSOLTE na faixa verde para largar." \
+		% [player_profile, player_car, rival_profile, rival_car]
 	hud.panel.visible = true
 
 
@@ -309,9 +333,11 @@ func _to_result() -> void:
 	var t := "VOCE VENCEU" if venceu else "DERROTA"
 	if player.blown:
 		t = "MOTOR FUNDIDO  -  DNF"
-	t += "\n\n%s  %s\n%s  %s\n" % [
-		player_profile, ("%.2fs" % player.finished_at) if player.finished_at > 0 else "---",
-		rival_profile, ("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "---"]
+	t += "\n\n%s (%s)  %s\n%s (%s)  %s\n" % [
+		player_profile, player_car,
+		("%.2fs" % player.finished_at) if player.finished_at > 0 else "---",
+		rival_profile, rival_car,
+		("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "---"]
 	t += "\ntrocas perfeitas: %d    trocas ruins: %d" % [player.perfect_shifts, player.bad_shifts]
 	t += "\ncalor maximo: %.0f%%   (limite %.0f%%)" % [peak_heat * 100, Tuning.HEAT_LIMIT * 100]
 	t += "\nnitro restante: %.1fs" % player.nitro
@@ -377,6 +403,19 @@ func _process(delta: float) -> void:
 	_update_camera(delta)
 	_update_hud(delta)
 
+	# --autorace: prints em momentos-chave para conferir escala e enquadramento
+	if auto and _shots.size() > 0 and state == State.RACING and player.time >= _shots[0]:
+		_shots.remove_at(0)
+		_screenshot()
+
+
+func _screenshot() -> void:
+	var idx := 4 - _shots.size()
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	img.save_png("user://shot_%d.png" % idx)
+	print("shot_%d.png  t=%.1fs  gap=%.1fm" % [idx, player.time, player.pos - rival.pos])
+
 
 func _step_race(delta: float) -> void:
 	if auto and player.rpm() >= 0.96:
@@ -411,11 +450,8 @@ func _drive_ai() -> void:
 
 
 func _update_cars() -> void:
-	car_mesh.position = Vector3(-LANE, 0, player.pos)
-	rival_mesh.position = Vector3(LANE, 0, rival.pos)
-	# leve mergulho/levantada para dar peso
-	car_mesh.rotation.x = lerpf(car_mesh.rotation.x,
-		-0.012 * (1.0 if player.nitro_on else 0.3), 0.1)
+	car_sprite.position = Vector3(-LANE, CAR_Y, player.pos)
+	rival_sprite.position = Vector3(LANE, CAR_Y, rival.pos)
 
 
 func _update_camera(delta: float) -> void:
@@ -424,12 +460,19 @@ func _update_camera(delta: float) -> void:
 	var gap: float = player.pos - rival.pos
 	var dual: bool = absf(gap) <= DUAL_GAP and state != State.MENU
 	var focus: float = (player.pos + rival.pos) * 0.5 if dual else player.pos
-	var side: float = -7.2 if dual else -4.6
+	var ahead: float = CAM_AHEAD_DUAL if dual else CAM_AHEAD_SOLO
 
-	var want := Vector3(side, 0.95, focus - 7.5)
+	# A frente dos carros, olhando para tras: os carros vem em cima da camera.
+	# A camera se ancora no LIDER, nunca no jogador: ancorada no jogador, um rival
+	# que abre mais que CAM_AHEAD ultrapassa a camera e desaparece do quadro.
+	# Ancorada no lider, quem esta atras aparece menor e mais longe -- a propria
+	# perspectiva vira leitura de quem esta ganhando.
+	var anchor: float = maxf(player.pos, rival.pos)
+	var focus_x: float = 0.0 if dual else -LANE * 0.55
+	var want := Vector3(CAM_X, CAM_Y, anchor + ahead)
 	var k: float = 1.0 - exp(-6.0 * delta)
 	cam.global_position = cam.global_position.lerp(want, k)
-	cam.look_at(Vector3(-LANE * 0.4, 1.05, focus + 26.0))
+	cam.look_at(Vector3(focus_x, CAR_Y * 0.95, anchor - 8.0))
 
 
 func _update_hud(delta: float) -> void:

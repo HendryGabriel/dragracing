@@ -67,12 +67,16 @@ Automático é acessibilidade real: o jogador casual joga a run inteira nele e f
 
 ### 2.5 Câmera e HUD
 
-**Câmera de perseguição dinâmica em 3ª pessoa** — baixa, levemente à frente e à lateral dos carros, quase na altura dos faróis. Tomada clássica de transmissão de arrancada.
+**Câmera de perseguição dinâmica em 3ª pessoa** — baixa, quase na altura dos faróis, posicionada **à frente dos carros e olhando para trás**. Tomada clássica de transmissão de arrancada: os carros vêm em cima da câmera, e o jogador vê a **frente** do carro — que é o ângulo em que a arte de carroceria é produzida (§3.5).
 
 **Enquadramento híbrido por gap:**
-- Gap ≤ ~2 carros → **enquadramento duplo** (os dois carros no quadro; é onde o jogo é mais bonito).
-- Gap maior → a câmera solta o rival e cola no jogador.
+- Gap ≤ ~2 carros → **enquadramento duplo**, os dois no quadro. É onde o jogo é mais bonito.
+- Gap maior → a câmera abre e o **indicador de gap** assume a leitura precisa.
 - Gap fecha de novo → volta ao enquadramento duplo (momento dramático por si só).
+
+**A câmera se ancora no líder, não no jogador.** Ancorada no jogador, um rival que abre mais que a distância da câmera a ultrapassa e some do quadro — o pior momento possível para perder a informação de vista. Ancorada no líder, quem está atrás aparece menor e mais ao fundo, e a própria perspectiva vira leitura de quem está ganhando.
+
+**A câmera fica quase no meio das duas pistas.** Deslocá-la para a lateral alinha as duas pistas na linha de visão e um carro esconde o outro — o que destrói justamente a leitura lado a lado que a corrida paralela existe para dar.
 
 **Indicador de gap sempre visível no HUD**, inclusive no enquadramento duplo. O jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
 
@@ -141,6 +145,8 @@ Peça não é só número — ela **pertence a uma marca**, e a marca é o arqu�
 
 **Carroceria = o carro.** É a escolha de pré-run e define os stats base (curva de bandas inicial).
 **Aerofólio = puramente visual.**
+
+**Formato da arte:** foto em 3/4 frontal, fundo transparente, carro **branco** (a pintura entra por tingimento, então uma imagem serve para todas as cores) e **sem rodas** — as caixas de roda ficam vazias de propósito. Roda é um slot de equipamento (§3.2), e sua arte é composta por cima da carroceria. Isso é o que permite trocar de pneu e o jogador **ver** a troca.
 
 Os carros formam uma **escada de poder pura** (estilo Need for Speed): Tier 1 é claramente mais fraco que Tier 3. Carros novos são desbloqueados vencendo runs.
 

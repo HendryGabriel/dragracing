@@ -7,7 +7,7 @@ extends Node3D
 
 enum State { MENU, STAGING, RACING, RESULT }
 
-const LANE := 3.4          # afastamento lateral de cada carro
+const LANE := 4.3          # afastamento lateral de cada carro
 const DUAL_GAP := 14.0     # m -- ate aqui a camera enquadra os dois
 const POST_SPACING := 20.0 # m entre postes de referencia
 
@@ -19,7 +19,7 @@ const POST_SPACING := 20.0 # m entre postes de referencia
 # de fuga central e o carro parece atravessado nele. O angulo da camera precisa casar
 # com o angulo em que a foto foi tirada.
 const CAM_ANGLE_DEG := 38.0  # graus fora do eixo da pista
-const CAM_SIDE := 1.0        # lado da camera (+1 = direita da pista, -1 = esquerda)
+const CAM_SIDE := -1.0       # lado da camera (-1 = esquerda da pista)
 const CAM_Y := 1.15          # altura, quase na linha dos farois
 const CAM_DIST_DUAL := 15.0
 const CAM_DIST_SOLO := 14.0
@@ -153,6 +153,7 @@ func _car_sprite(tint: Color) -> Sprite3D:
 	s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	s.alpha_scissor_threshold = 0.35
 	s.modulate = tint
+	s.flip_h = true  # a foto tem o bico do carro a direita; espelhada, o carro anda para a esquerda
 	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return s
 

@@ -43,10 +43,9 @@ frente do carro: é o ângulo em que a arte foi produzida.
 
 `CAM_ANGLE_DEG` (38°) é a constante mais delicada do render: como a foto é 3/4, a pista
 precisa fugir na mesma diagonal. Com a câmera no eixo da pista o asfalto corre reto e o
-carro parece andar de lado. `CAM_SIDE` escolhe de que lado a câmera fica, e anda
-junto com o `flip_h` do sprite: a corrida vai da **direita para a esquerda**, então a foto
-(que vem com o bico à direita) é espelhada e a câmera fica à esquerda da pista. Mexer em um
-sem o outro faz carro e pista apontarem para direções opostas.
+carro parece andar de lado. `CAM_SIDE = -1` põe a câmera à esquerda da pista, o que
+faz a corrida correr da **direita para a esquerda**. A arte entra sem espelhamento: espelhar
+inverteria emblemas, placas e decalques.
 
 Carro novo: jogue o `.png` em `cars/` e adicione o nome (sem extensão) em
 [`cars.gd`](cars.gd). A lista é explícita de propósito — varrer `res://` com `DirAccess`

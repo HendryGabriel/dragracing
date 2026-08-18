@@ -76,11 +76,11 @@ Automático é acessibilidade real: o jogador casual joga a run inteira nele e f
 
 **A câmera se ancora no líder, não no jogador.** Ancorada no jogador, um rival que abre mais que a distância da câmera a ultrapassa e some do quadro — o pior momento possível para perder a informação de vista. Ancorada no líder, quem está atrás aparece menor e mais ao fundo, e a própria perspectiva vira leitura de quem está ganhando.
 
-**O ângulo da câmera é ditado pela arte, não pelo gosto.** A carroceria é uma foto em 3/4, então a **pista tem que fugir na mesma diagonal**. Com a câmera alinhada ao eixo da pista, o asfalto corre reto para um ponto de fuga central enquanto o carro está virado 38° — e o carro parece atravessado na pista, andando de lado. A câmera precisa ficar deslocada do eixo no mesmo ângulo em que a foto foi tirada (~38°), do lado que corresponde ao flanco visível na arte.
+**O ângulo da câmera é ditado pela arte, não pelo gosto.** A carroceria é uma foto em 3/4, então a **pista tem que fugir na mesma diagonal**. Com a câmera alinhada ao eixo da pista, o asfalto corre reto para um ponto de fuga central enquanto o carro está virado 38° — e o carro parece atravessado na pista, andando de lado. A câmera precisa ficar deslocada do eixo no mesmo ângulo em que a foto foi tirada (~38°), e é esse deslocamento que faz o asfalto correr na diagonal.
 
-**Sentido da corrida: da direita para a esquerda.** A foto original tem o bico do carro à direita, o que faria o carro correr para a direita. Como o sentido escolhido é o inverso, a arte é **espelhada na horizontal** e a câmera fica do lado esquerdo da pista. Espelhar inverte emblemas e textos (placas, "GTI", decalques) — se isso incomodar, a alternativa é pedir a arte já com o bico à esquerda e remover o espelhamento.
+**Sentido da corrida: da direita para a esquerda.** A câmera fica do lado esquerdo da pista (`CAM_SIDE = -1`), o que põe o fim da pista à direita do quadro e traz os carros em direção à esquerda. A arte entra **sem espelhamento** — espelhar inverteria emblemas, placas e decalques, e um jogo cujo público inclui gente que conhece carro nota isso na hora.
 
-Isso amarra três coisas que não podem ser mexidas isoladamente: **ângulo da foto = ângulo da câmera = diagonal da pista**. Trocar o fornecedor de arte por fotos em outro ângulo obriga a mexer na câmera junto.
+Isso amarra duas coisas que não podem ser mexidas isoladamente: **ângulo da foto = ângulo da câmera**. Trocar o fornecedor de arte por fotos em outro ângulo obriga a mexer na câmera junto.
 
 **Indicador de gap sempre visível no HUD**, inclusive no enquadramento duplo. O jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
 

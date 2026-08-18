@@ -153,7 +153,6 @@ func _car_sprite(tint: Color) -> Sprite3D:
 	s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	s.alpha_scissor_threshold = 0.35
 	s.modulate = tint
-	s.flip_h = true  # a foto tem o bico do carro a direita; espelhada, o carro anda para a esquerda
 	s.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return s
 

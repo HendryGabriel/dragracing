@@ -135,7 +135,7 @@ func _scene_smoke() -> int:
 	# Em --script o loop principal nao roda, entao _ready() nao dispara sozinho.
 	if scene.cam == null:
 		scene._ready()
-	if scene.cam == null or not scene.hud.has("gear"):
+	if scene.cam == null or scene.hud == null or scene.hud.font == null:
 		push_error("[4] A cena nao montou mundo/HUD")
 		scene.queue_free()
 		return 1
@@ -144,6 +144,7 @@ func _scene_smoke() -> int:
 	scene.rev = 0.70
 	scene._start_race()
 
+	var fails_local := 0
 	var steps := 0
 	while scene.state == 2 and steps < 6000:  # 2 = State.RACING
 		if scene.player.rpm() >= 0.96:
@@ -151,11 +152,24 @@ func _scene_smoke() -> int:
 		scene._process(DT * 2.0)
 		steps += 1
 
+	# A vitoria tem que sair do TEMPO. Ja saiu da posicao uma vez e declarou
+	# vencedor quem perdeu por 0.04s, porque posicao congela na linha.
+	scene.player.finished_at = 30.10
+	scene.rival.finished_at = 30.06
+	scene.player.blown = false
+	if scene.won():
+		push_error("[4] Vitoria decidida errado: rival 0.04s mais rapido e o jogador venceu")
+		fails_local += 1
+	scene.rival.finished_at = 30.20
+	if not scene.won():
+		push_error("[4] Vitoria decidida errado: jogador 0.10s mais rapido e perdeu")
+		fails_local += 1
+
 	var ok: bool = scene.state == 3  # 3 = State.RESULT
 	print("\nsmoke da cena: estado final %s apos %.1fs simulados"
 		% ["RESULT" if ok else "TRAVOU (%d)" % scene.state, steps * DT * 2.0])
 	scene.queue_free()
 	if not ok:
 		push_error("[4] A corrida nao chegou na tela de resultado")
-		return 1
-	return 0
+		fails_local += 1
+	return fails_local

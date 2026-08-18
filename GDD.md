@@ -86,6 +86,12 @@ Isso amarra duas coisas que não podem ser mexidas isoladamente: **ângulo da fo
 
 **Medidor de RPM / janela de troca:** HUD fixo e grande. Não pode ser instrumento no painel — a câmera é externa e móvel, painel não seria legível.
 
+**A árvore de largada é a linguagem visual do HUD.** Largada, janela de troca e limite térmico usam a **mesma lâmpada**, na mesma sequência âmbar → verde → vermelho da pista real. Na largada ela é a árvore literal; na corrida vira a régua de giro, e quando o giro entra na janela a régua inteira acende verde — o sinal de trocar precisa ser legível pela visão periférica, porque o jogador está olhando o rival, não o mostrador. Uma linguagem só, aprendida uma vez, usada nos três momentos em que o jogo cobra timing.
+
+Decorre daí o resto: paleta quente de autódromo à noite, recortes chanfrados (não cantos arredondados de kit de UI), e **o nitro como o único elemento frio do painel** — é o oposto do calor, e é essa oposição que o jogador precisa ler na fase 3. As cores de sinal são saturadas de propósito: são aviso, não enfeite.
+
+Tipografia: **Bahnschrift** (o DIN 1451 que acompanha o Windows), face de instrumento e sinalização viária. Caixa alta espaçada fica reservada só a rótulo de mostrador; o resto é caixa normal, para não virar um único traje aplicado a todo texto pequeno.
+
 ---
 
 ## 3. Carro e equipamentos

@@ -62,6 +62,16 @@ se comporta diferente no editor e no build exportado.
 > ela não existe, os carros correm sem roda. Precisa de PNGs de pneu/roda com o mesmo
 > ângulo 3/4 e um ponto de ancoragem por carroceria.
 
+## Interface
+
+O HUD vive em [`hud.gd`](hud.gd), desenhado em modo imediato (`_draw`), alimentado por
+`race.gd` a cada quadro via `feed()`. Não há árvore de nós de UI: um `Control` só.
+
+A assinatura é a **árvore de largada**. A mesma lâmpada aparece nos três momentos de
+timing do jogo — árvore na largada, régua de giro na corrida, e a régua inteira acende
+verde dentro da janela de troca. Paleta quente, recortes chanfrados, e o nitro como
+único elemento frio (o oposto do calor). Fonte: Bahnschrift, via `SystemFont`.
+
 ## Ajustar
 
 Todos os números vivem em [`tuning.gd`](tuning.gd). Edite, salve, rode de novo.

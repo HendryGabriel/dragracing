@@ -48,7 +48,12 @@ var car_sprite: Sprite3D
 var rival_sprite: Sprite3D
 var player_car := "mustang 1969"
 var rival_car := "golf gti"
-var hud: Dictionary = {}
+var hud: Hud
+var card_title := ""
+var card_color := Color.WHITE
+var card_lines: Array = []
+var card_table: Array = []
+var matchup := ""
 
 
 # ---------------------------------------------------------------- setup
@@ -62,7 +67,12 @@ func _ready() -> void:
 	if "--autorace" in OS.get_cmdline_user_args():
 		auto = true
 		_shots = [1.5, 8.0, 20.0, 28.0]
+		await get_tree().process_frame
+		await _shot_named("menu")
 		_start_staging()
+		rev = 0.55
+		await get_tree().process_frame
+		await _shot_named("arvore")
 		rev = 0.70
 		_start_race()
 
@@ -159,141 +169,30 @@ func _car_sprite(tint: Color) -> Sprite3D:
 
 # ---------------------------------------------------------------- hud
 
-func _label(size: int, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	l.add_theme_constant_override("outline_size", 6)
-	l.horizontal_alignment = align
-	return l
-
-
-func _rect(col: Color) -> ColorRect:
-	var r := ColorRect.new()
-	r.color = col
-	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return r
-
-
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var root := Control.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(root)
-	hud.root = root
-
-	# --- barra de giro (tambem serve de ponteiro de largada) ---
-	var bar_w := 620.0
-	var bg := _rect(Color(0, 0, 0, 0.55))
-	bg.position = Vector2(-bar_w * 0.5, -170)
-	bg.size = Vector2(bar_w, 46)
-	bg.anchor_left = 0.5
-	bg.anchor_right = 0.5
-	bg.anchor_top = 1.0
-	bg.anchor_bottom = 1.0
-	root.add_child(bg)
-	hud.rpm_bg = bg
-
-	hud.rpm_green = _rect(Color(0.25, 0.95, 0.4, 0.35))
-	bg.add_child(hud.rpm_green)
-	hud.rpm_fill = _rect(Color(0.9, 0.9, 0.95, 0.9))
-	bg.add_child(hud.rpm_fill)
-
-	hud.gear = _label(72, Color(1, 1, 1))
-	hud.gear.position = Vector2(-bar_w * 0.5 - 110, -215)
-	hud.gear.anchor_left = 0.5
-	hud.gear.anchor_top = 1.0
-	root.add_child(hud.gear)
-
-	hud.speed = _label(38, Color(0.85, 0.9, 1.0))
-	hud.speed.position = Vector2(bar_w * 0.5 + 20, -190)
-	hud.speed.anchor_left = 0.5
-	hud.speed.anchor_top = 1.0
-	root.add_child(hud.speed)
-
-	# --- calor ---
-	hud.heat_bg = _rect(Color(0, 0, 0, 0.55))
-	hud.heat_bg.position = Vector2(-360, -110)
-	hud.heat_bg.size = Vector2(340, 30)
-	hud.heat_bg.anchor_left = 1.0
-	hud.heat_bg.anchor_right = 1.0
-	hud.heat_bg.anchor_top = 1.0
-	hud.heat_bg.anchor_bottom = 1.0
-	root.add_child(hud.heat_bg)
-	hud.heat_fill = _rect(Color(1, 0.6, 0.15))
-	hud.heat_bg.add_child(hud.heat_fill)
-	hud.heat_mark = _rect(Color(1, 0.2, 0.15))
-	hud.heat_mark.size = Vector2(3, 30)
-	hud.heat_mark.position = Vector2(340 * Tuning.HEAT_LIMIT / 1.15, 0)
-	hud.heat_bg.add_child(hud.heat_mark)
-
-	hud.heat_label = _label(20, Color(1, 0.75, 0.4))
-	hud.heat_label.position = Vector2(-360, -138)
-	hud.heat_label.anchor_left = 1.0
-	hud.heat_label.anchor_top = 1.0
-	root.add_child(hud.heat_label)
-
-	# --- nitro ---
-	hud.nitro_bg = _rect(Color(0, 0, 0, 0.55))
-	hud.nitro_bg.position = Vector2(-360, -72)
-	hud.nitro_bg.size = Vector2(340, 22)
-	hud.nitro_bg.anchor_left = 1.0
-	hud.nitro_bg.anchor_right = 1.0
-	hud.nitro_bg.anchor_top = 1.0
-	hud.nitro_bg.anchor_bottom = 1.0
-	root.add_child(hud.nitro_bg)
-	hud.nitro_fill = _rect(Color(0.3, 0.8, 1.0))
-	hud.nitro_bg.add_child(hud.nitro_fill)
-
-	# --- gap, fase, flash ---
-	hud.gap = _label(46, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER)
-	hud.gap.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	hud.gap.position = Vector2(-200, 24)
-	hud.gap.size = Vector2(400, 60)
-	root.add_child(hud.gap)
-
-	hud.phase = _label(22, Color(0.7, 0.75, 0.85), HORIZONTAL_ALIGNMENT_CENTER)
-	hud.phase.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	hud.phase.position = Vector2(-250, 82)
-	hud.phase.size = Vector2(500, 40)
-	root.add_child(hud.phase)
-
-	hud.flash = _label(52, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER)
-	hud.flash.set_anchors_preset(Control.PRESET_CENTER)
-	hud.flash.position = Vector2(-300, -140)
-	hud.flash.size = Vector2(600, 70)
-	root.add_child(hud.flash)
-
-	# --- painel de texto (menu / staging / resultado) ---
-	var panel := _rect(Color(0, 0, 0, 0.78))
-	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_child(panel)
-	hud.panel = panel
-
-	hud.panel_text = _label(28, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_CENTER)
-	hud.panel_text.set_anchors_preset(Control.PRESET_FULL_RECT)
-	hud.panel_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	panel.add_child(hud.panel_text)
+	hud = Hud.new()
+	layer.add_child(hud)
 
 
 # ---------------------------------------------------------------- fluxo
 
 func _to_menu() -> void:
 	state = State.MENU
-	var t := "[ PROTOTIPO DE ARRANCADA ]\n\nEscolha o motor:\n\n"
+	card_title = "ARRANCADA"
+	card_color = Hud.TEXT
+	card_table = []
 	var i := 1
 	for name in Tuning.PROFILES:
 		var b: Array = Tuning.PROFILES[name]
-		t += "  [%d]  %-14s  baixa %3.0f / media %3.0f / alta %3.0f    %s\n" \
-			% [i, name, b[0], b[1], b[2], Cars.BY_PROFILE.get(name, "?")]
+		card_table.append(["%d" % i, name, "%.0f / %.0f / %.0f" % [b[0], b[1], b[2]],
+			Cars.BY_PROFILE.get(name, "?")])
 		i += 1
-	t += "\nbaixa = largada (1a-2a)   media = aceleracao (3a-5a)   alta = topo (6a-7a)\n"
-	t += "\nESPACO segura/solta = largada e troca de marcha    SHIFT = nitro\nR = repetir    ESC = sair"
-	hud.panel_text.text = t
-	hud.panel.visible = true
+	card_lines = [
+		"~a banda decide qual fase da corrida voce ganha",
+		"~ESPACO larga e troca   ·   SHIFT nitro   ·   ESC sai",
+	]
 
 
 func _start_staging() -> void:
@@ -322,15 +221,13 @@ func _start_staging() -> void:
 	car_sprite.texture = Cars.texture(player_car)
 	rival_sprite.texture = Cars.texture(rival_car)
 
-	hud.panel_text.text = "%s  (%s)\nx\n%s  (%s)\n\nSEGURE ESPACO para subir o giro.\nSOLTE na faixa verde para largar." \
-		% [player_profile, player_car, rival_profile, rival_car]
-	hud.panel.visible = true
+	matchup = "%s (%s)   x   %s (%s)" % [player_profile, player_car,
+		rival_profile, rival_car]
 
 
 func _start_race() -> void:
 	player.set_launch(rev)
 	state = State.RACING
-	hud.panel.visible = false
 	_set_flash(_launch_verdict(rev))
 
 
@@ -343,23 +240,39 @@ func _launch_verdict(r: float) -> String:
 	return "PATINOU"
 
 
+## Vitoria e por TEMPO, nunca por posicao: quem cruza primeiro congela a posicao
+## em ~1500m e o outro alcanca o mesmo numero, entao comparar pos da empate falso
+## -- ou pior, declara vencedor quem perdeu.
+func won() -> bool:
+	if player.blown:
+		return false
+	if player.finished_at <= 0.0:
+		return false
+	if rival.finished_at > 0.0:
+		return player.finished_at <= rival.finished_at
+	return true
+
+
 func _to_result() -> void:
 	state = State.RESULT
-	var venceu := player.pos >= rival.pos and not player.blown
-	var t := "VOCE VENCEU" if venceu else "DERROTA"
+	var venceu := won()
+	card_title = "VENCEU" if venceu else "DERROTA"
+	card_color = Hud.GREEN if venceu else Hud.RED
 	if player.blown:
-		t = "MOTOR FUNDIDO  -  DNF"
-	t += "\n\n%s (%s)  %s\n%s (%s)  %s\n" % [
-		player_profile, player_car,
-		("%.2fs" % player.finished_at) if player.finished_at > 0 else "---",
-		rival_profile, rival_car,
-		("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "---"]
-	t += "\ntrocas perfeitas: %d    trocas ruins: %d" % [player.perfect_shifts, player.bad_shifts]
-	t += "\ncalor maximo: %.0f%%   (limite %.0f%%)" % [peak_heat * 100, Tuning.HEAT_LIMIT * 100]
-	t += "\nnitro restante: %.1fs" % player.nitro
-	t += "\n\nR = correr de novo    M = trocar motor    ESC = sair"
-	hud.panel_text.text = t
-	hud.panel.visible = true
+		card_title = "MOTOR FUNDIDO"
+		card_color = Hud.RED
+	card_table = []
+	card_lines = [
+		"%s   %s" % [player_car,
+			("%.2fs" % player.finished_at) if player.finished_at > 0 else "nao terminou"],
+		"~%s   %s" % [rival_car,
+			("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "nao terminou"],
+		"trocas perfeitas %d   ·   ruins %d" % [player.perfect_shifts, player.bad_shifts],
+		"calor maximo %.0f%%   ·   limite %.0f%%" % [peak_heat * 100, Tuning.HEAT_LIMIT * 100],
+		"~R corre de novo   ·   M troca de motor   ·   ESC sai",
+	]
+	if auto:
+		_shot_named("resultado")
 
 
 # ---------------------------------------------------------------- input
@@ -417,12 +330,18 @@ func _process(delta: float) -> void:
 
 	_update_cars()
 	_update_camera(delta)
-	_update_hud(delta)
+	_feed_hud(delta)
 
 	# --autorace: prints em momentos-chave para conferir escala e enquadramento
 	if auto and _shots.size() > 0 and state == State.RACING and player.time >= _shots[0]:
 		_shots.remove_at(0)
 		_screenshot()
+
+
+func _shot_named(nome: String) -> void:
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("user://tela_%s.png" % nome)
+	print("tela_%s.png" % nome)
 
 
 func _screenshot() -> void:
@@ -495,54 +414,49 @@ func _update_camera(delta: float) -> void:
 	cam.look_at(target)
 
 
-func _update_hud(delta: float) -> void:
-	var racing := state == State.RACING
-	var staging := state == State.STAGING
-	for key in ["gear", "speed", "heat_bg", "heat_label", "nitro_bg", "gap", "phase"]:
-		hud[key].visible = racing
-	hud.rpm_bg.visible = racing or staging
-
-	# barra: giro na corrida, ponteiro de largada no staging
-	if racing or staging:
-		var w: float = hud.rpm_bg.size.x
-		var range_max := 1.15 if racing else Tuning.LAUNCH_MAX
-		var green: Vector2 = Tuning.PERFECT if racing else Tuning.LAUNCH_GREEN
-		var val: float = clampf(player.rpm(), 0.0, range_max) if racing else rev
-		hud.rpm_green.position = Vector2(w * green.x / range_max, 0)
-		hud.rpm_green.size = Vector2(w * (green.y - green.x) / range_max, hud.rpm_bg.size.y)
-		hud.rpm_fill.size = Vector2(w * val / range_max, hud.rpm_bg.size.y)
-		var hot: bool = val >= green.x and val <= green.y
-		hud.rpm_fill.color = Color(0.35, 1.0, 0.45, 0.95) if hot else Color(0.9, 0.9, 0.95, 0.85)
-
-	if racing:
-		hud.gear.text = str(player.gear)
-		hud.speed.text = "%.0f km/h" % (player.speed * 3.6)
-
-		var h: float = clampf(player.heat / 1.15, 0.0, 1.0)
-		hud.heat_fill.size = Vector2(hud.heat_bg.size.x * h, hud.heat_bg.size.y)
-		var over: bool = player.heat > Tuning.HEAT_LIMIT
-		hud.heat_fill.color = Color(1.0, 0.18, 0.12) if over else Color(1.0, 0.62, 0.16)
-		hud.heat_label.text = "CALOR %.0f%%%s" % [player.heat * 100,
-			"   RISCO DE FUNDIR" if over else ""]
-		hud.heat_label.add_theme_color_override("font_color",
-			Color(1, 0.25, 0.2) if over else Color(1, 0.75, 0.4))
-
-		hud.nitro_fill.size = Vector2(
-			hud.nitro_bg.size.x * (player.nitro / Tuning.NITRO_CAPACITY), hud.nitro_bg.size.y)
-
-		var gap: float = player.pos - rival.pos
-		hud.gap.text = "%+.1f m" % gap
-		hud.gap.add_theme_color_override("font_color",
-			Color(0.4, 1.0, 0.5) if gap >= 0 else Color(1.0, 0.45, 0.4))
-
-		var fase := "FASE 1  LARGADA" if player.gear <= 2 \
-			else ("FASE 2  ACELERACAO" if player.gear <= 5 else "FASE 3  TOPO")
-		hud.phase.text = "%s   ·   banda %s   ·   %.0f / %.0f m" \
-			% [fase, player.band_name(), player.pos, Tuning.RACE_DISTANCE]
-
+func _feed_hud(delta: float) -> void:
 	if flash_t > 0.0:
 		flash_t -= delta
-		hud.flash.text = flash
-		hud.flash.modulate.a = clampf(flash_t / 0.5, 0.0, 1.0)
-	else:
-		hud.flash.text = ""
+
+	var d := {
+		"state": int(state),
+		"flash": flash,
+		"flash_a": clampf(flash_t / 0.5, 0.0, 1.0),
+		"t": Time.get_ticks_msec() / 1000.0,
+	}
+	match state:
+		State.RACING:
+			d.merge({
+				"gear": player.gear,
+				"rpm": player.rpm(),
+				"speed": player.speed * 3.6,
+				"heat": player.heat,
+				"heat_limit": Tuning.HEAT_LIMIT,
+				"over": player.heat > Tuning.HEAT_LIMIT,
+				"nitro": player.nitro / Tuning.NITRO_CAPACITY,
+				"gap": player.pos - rival.pos,
+				"pos": player.pos,
+				"dist": Tuning.RACE_DISTANCE,
+				"phase": _phase_name(),
+				"perfect_lo": Tuning.PERFECT.x,
+				"perfect_hi": Tuning.PERFECT.y,
+			})
+		State.STAGING:
+			d.merge({
+				"rev": rev,
+				"launch_lo": Tuning.LAUNCH_GREEN.x,
+				"launch_hi": Tuning.LAUNCH_GREEN.y,
+				"matchup": matchup,
+			})
+		_:
+			d.merge({"title": card_title, "title_color": card_color,
+				"lines": card_lines, "table": card_table})
+	hud.feed(d)
+
+
+func _phase_name() -> String:
+	if player.gear <= 2:
+		return "FASE 1  LARGADA"
+	elif player.gear <= 5:
+		return "FASE 2  ACELERACAO"
+	return "FASE 3  TOPO"

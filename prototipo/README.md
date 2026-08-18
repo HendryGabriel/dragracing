@@ -10,7 +10,9 @@ de qualquer sistema ser construído.
 
 ## Rodar
 
-Abra a pasta `prototipo/` no Godot 4.7.1 e dê play. Ou pela linha de comando:
+O projeto é fixado no **Godot 4.7.1**. Abrir em outra versão reescreve
+`config/features` no `project.godot` e suja o histórico. Abra a pasta `prototipo/` e dê
+play, ou pela linha de comando:
 
 ```bash
 godot --path prototipo

@@ -43,6 +43,11 @@ por `modulate`, então uma imagem serve para qualquer cor) e **sem rodas**.
 A câmera fica **à frente dos carros olhando para trás**, que é por isso que você vê a
 frente do carro: é o ângulo em que a arte foi produzida.
 
+Ela é **rígida e presa ao jogador** — nunca gira, nunca troca de alvo, e o sprite tem
+rotação fixa em vez de billboard. Foto parada não pode esterçar: se a câmera girasse, o
+sprite giraria junto para encará-la e o carro pareceria fazer curva numa reta. O preço é
+que rival muito à frente sai do quadro, e quem informa vira o indicador de gap.
+
 `CAM_ANGLE_DEG` (38°) é a constante mais delicada do render: como a foto é 3/4, a pista
 precisa fugir na mesma diagonal. Com a câmera no eixo da pista o asfalto corre reto e o
 carro parece andar de lado. `CAM_SIDE = -1` põe a câmera à esquerda da pista, o que

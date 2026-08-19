@@ -8,7 +8,6 @@ extends Node3D
 enum State { MENU, STAGING, RACING, RESULT }
 
 const LANE := 4.3          # afastamento lateral de cada carro
-const DUAL_GAP := 14.0     # m -- ate aqui a camera enquadra os dois
 const POST_SPACING := 20.0 # m entre postes de referencia
 
 # A camera fica A FRENTE dos carros, baixa, olhando para tras: e por isso que o
@@ -21,8 +20,15 @@ const POST_SPACING := 20.0 # m entre postes de referencia
 const CAM_ANGLE_DEG := 38.0  # graus fora do eixo da pista
 const CAM_SIDE := -1.0       # lado da camera (-1 = esquerda da pista)
 const CAM_Y := 1.15          # altura, quase na linha dos farois
-const CAM_DIST_DUAL := 15.0
-const CAM_DIST_SOLO := 14.0
+const CAM_DIST := 15.0
+#
+# A camera e RIGIDA: sempre o mesmo deslocamento em relacao ao carro do JOGADOR,
+# sem trocar de alvo e sem nunca girar. Nao e preferencia, e limite da arte -- a
+# carroceria e uma foto parada, entao girar a camera obrigaria o sprite a girar
+# junto para continuar encarando ela, e o carro pareceria esterçar numa reta.
+# Custo aceito: rival muito na frente sai do quadro, e quem informa passa a ser
+# o indicador de gap do HUD.
+
 const ROAD_W := 7.0        # meia largura do asfalto
 
 const CAR_PIXEL_SIZE := 0.0035  # escala da foto -> metros
@@ -131,8 +137,12 @@ func _build_world() -> void:
 		add_child(_box(Vector3(side, 4.0, Tuning.RACE_DISTANCE), Vector3(0.6, 8.0, 0.6),
 			Color(0.95, 0.72, 0.15)))
 
+	var off := cam_offset()
+	var yaw := atan2(off.x, off.z)
 	car_sprite = _car_sprite(Color(0.62, 0.80, 1.0))
 	rival_sprite = _car_sprite(Color(1.0, 0.66, 0.58))
+	car_sprite.rotation.y = yaw
+	rival_sprite.rotation.y = yaw
 	add_child(car_sprite)
 	add_child(rival_sprite)
 
@@ -154,12 +164,14 @@ func _box(pos: Vector3, size: Vector3, col: Color) -> MeshInstance3D:
 	return m
 
 
-## A carroceria e um sprite: a arte e foto 3/4 frontal, entao o carro sempre
-## apresenta a frente para a camera (billboard travado no eixo Y, para nao deitar).
+## A carroceria e um sprite de rotacao FIXA, casada com o angulo da camera.
+## Billboard faria o carro girar conforme a camera se move -- e foto nao esterça.
 func _car_sprite(tint: Color) -> Sprite3D:
 	var s := Sprite3D.new()
 	s.pixel_size = CAR_PIXEL_SIZE
-	s.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	# Sem billboard: a rotacao e fixa e casa com o angulo da camera. Billboard
+	# faria cada carro girar conforme a camera se move, e foto parada nao esterça.
+	s.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	s.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
 	s.alpha_scissor_threshold = 0.35
 	s.modulate = tint
@@ -389,28 +401,19 @@ func _update_cars() -> void:
 	rival_sprite.position = Vector3(LANE, CAR_Y, rival.pos)
 
 
-func _update_camera(delta: float) -> void:
+## Deslocamento fixo da camera em relacao ao carro do jogador.
+static func cam_offset() -> Vector3:
+	var ang := deg_to_rad(CAM_ANGLE_DEG)
+	return Vector3(CAM_SIDE * sin(ang) * CAM_DIST, CAM_Y - CAR_Y * 0.95, cos(ang) * CAM_DIST)
+
+
+func _update_camera(_delta: float) -> void:
 	if not cam.is_inside_tree():
 		return
-	var gap: float = player.pos - rival.pos
-	var dual: bool = absf(gap) <= DUAL_GAP and state != State.MENU
-	var dist: float = CAM_DIST_DUAL if dual else CAM_DIST_SOLO
-
-	# A frente dos carros, olhando para tras: os carros vem em cima da camera.
-	# A camera se ancora no LIDER, nunca no jogador: ancorada no jogador, um rival
-	# que abre mais que a distancia da camera a ultrapassa e some do quadro.
-	# Ancorada no lider, quem esta atras aparece menor e mais longe -- a propria
-	# perspectiva vira leitura de quem esta ganhando.
-	var anchor: float = maxf(player.pos, rival.pos)
-	var target := Vector3(0.0 if dual else -LANE * 0.55, CAR_Y * 0.95, anchor)
-
-	var ang := deg_to_rad(CAM_ANGLE_DEG)
-	var want := Vector3(
-		target.x + CAM_SIDE * sin(ang) * dist,
-		CAM_Y,
-		anchor + cos(ang) * dist)
-	var k: float = 1.0 - exp(-6.0 * delta)
-	cam.global_position = cam.global_position.lerp(want, k)
+	# Alvo e camera transladam juntos pelo mesmo vetor, entao a direcao de visada
+	# e constante quadro a quadro: a camera avanca, nunca gira.
+	var target := Vector3(-LANE, CAR_Y * 0.95, player.pos)
+	cam.global_position = target + cam_offset()
 	cam.look_at(target)
 
 

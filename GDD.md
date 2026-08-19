@@ -69,12 +69,9 @@ Automático é acessibilidade real: o jogador casual joga a run inteira nele e f
 
 **Câmera de perseguição dinâmica em 3ª pessoa** — baixa, quase na altura dos faróis, posicionada **à frente dos carros e olhando para trás**. Tomada clássica de transmissão de arrancada: os carros vêm em cima da câmera, e o jogador vê a **frente** do carro — que é o ângulo em que a arte de carroceria é produzida (§3.5).
 
-**Enquadramento híbrido por gap:**
-- Gap ≤ ~2 carros → **enquadramento duplo**, os dois no quadro. É onde o jogo é mais bonito.
-- Gap maior → a câmera abre e o **indicador de gap** assume a leitura precisa.
-- Gap fecha de novo → volta ao enquadramento duplo (momento dramático por si só).
+**A câmera é rígida e presa ao carro do jogador.** Mesmo deslocamento, mesmo ângulo, o tempo todo: ela avança com o jogador e nunca gira nem troca de alvo. Isso **não é preferência de enquadramento, é limite imposto pela arte** — a carroceria é uma foto parada. Qualquer giro da câmera obrigaria o sprite a girar junto para continuar encarando ela, e o carro pareceria esterçar no meio de uma reta. Pela mesma razão o sprite não é *billboard*: a rotação dele é fixa e casada com o ângulo da câmera.
 
-**A câmera se ancora no líder, não no jogador.** Ancorada no jogador, um rival que abre mais que a distância da câmera a ultrapassa e some do quadro — o pior momento possível para perder a informação de vista. Ancorada no líder, quem está atrás aparece menor e mais ao fundo, e a própria perspectiva vira leitura de quem está ganhando.
+**Custo aceito:** quando o rival abre mais do que a distância a que a câmera vai à frente, ele sai do quadro por completo. Quem passa a informar é o **indicador de gap** — que é exatamente a razão de ele existir e estar sempre visível. Se um dia isso incomodar, a saída que **não** reintroduz rotação é afastar a câmera ao longo do próprio eixo (só distância, nunca ângulo).
 
 **O ângulo da câmera é ditado pela arte, não pelo gosto.** A carroceria é uma foto em 3/4, então a **pista tem que fugir na mesma diagonal**. Com a câmera alinhada ao eixo da pista, o asfalto corre reto para um ponto de fuga central enquanto o carro está virado 38° — e o carro parece atravessado na pista, andando de lado. A câmera precisa ficar deslocada do eixo no mesmo ângulo em que a foto foi tirada (~38°), e é esse deslocamento que faz o asfalto correr na diagonal.
 
@@ -82,7 +79,7 @@ Automático é acessibilidade real: o jogador casual joga a run inteira nele e f
 
 Isso amarra duas coisas que não podem ser mexidas isoladamente: **ângulo da foto = ângulo da câmera**. Trocar o fornecedor de arte por fotos em outro ângulo obriga a mexer na câmera junto.
 
-**Indicador de gap sempre visível no HUD**, inclusive no enquadramento duplo. O jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
+**Indicador de gap sempre visível no HUD.** Com a câmera presa ao jogador, ele é a única fonte confiável de posição quando o rival está fora do quadro — o jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
 
 **Medidor de RPM / janela de troca:** HUD fixo e grande. Não pode ser instrumento no painel — a câmera é externa e móvel, painel não seria legível.
 

@@ -5,7 +5,7 @@ extends Node3D
 ##   2. Da pra SENTIR a diferenca entre torque e alta rotacao em 30s?
 ##   3. Segurar o nitro ate quase estourar da frio na barriga?
 
-enum State { MENU, STAGING, RACING, RESULT }
+enum State { MENU, STAGING, RACING, RESULT, OFERTA }
 
 const LANE := 4.3          # afastamento lateral de cada carro
 const POST_SPACING := 20.0 # m entre postes de referencia
@@ -65,6 +65,13 @@ var card_lines: Array = []
 var card_table: Array = []
 var matchup := ""
 var garagem := Garagem.new()
+var build := Build.new()
+var ofertas: Array = []
+var card_w := 606.0
+var card_table_w := 486.0
+var card_cols: Array = [0.0, 34.0, 190.0, 344.0]
+var card_head: Array = ["", "motor", "baixa / media / alta", "carro"]
+var card_cols_dim: Array = [2, 3]
 
 
 # ---------------------------------------------------------------- setup
@@ -195,9 +202,52 @@ func _build_hud() -> void:
 
 # ---------------------------------------------------------------- fluxo
 
+## Layout do cartao. A tela de oferta precisa de colunas mais largas que o menu,
+## entao cada tela declara o seu em vez de tudo caber num tamanho so.
+func _card_padrao() -> void:
+	card_w = 606.0
+	card_table_w = 486.0
+	card_cols = [0.0, 34.0, 190.0, 344.0]
+	card_head = ["", "motor", "baixa / media / alta", "carro"]
+	card_cols_dim = [2, 3]
+
+
+## Recompensa da vitoria: tres pecas, escolhe uma. E a primeira decisao de
+## verdade entre corridas -- ate aqui a sequencia era so apertar R.
+func _to_oferta() -> void:
+	state = State.OFERTA
+	ofertas = build.sortear_ofertas(player.rng, 3)
+	# Colunas largas o bastante para o nome mais longo do catalogo. Coluna
+	# "equipada" saiu: quase sempre vazia no comeco e espremia as duas que importam.
+	card_w = 800.0
+	card_table_w = 664.0
+	card_cols = [0.0, 26.0, 350.0]
+	card_head = ["", "peca", "efeito"]
+	card_cols_dim = []
+	card_title = "PECA CONQUISTADA"
+	card_color = Hud.GREEN
+	card_table = []
+	for i in ofertas.size():
+		var p: Peca = ofertas[i]
+		card_table.append(["%d" % (i + 1),
+			"%s %s" % [p.nome(), Peca.RARIDADES[p.raridade]], p.resumo()])
+	var equipadas := PackedStringArray()
+	for linha in build.ficha():
+		if linha[1] != "-":
+			equipadas.append("%s %s" % [linha[0], linha[1]])
+	card_lines = [
+		"~equipado: %s" % ("nada ainda" if equipadas.is_empty() else "   ·   ".join(equipadas)),
+		"~a nova ocupa o slot e a antiga vai embora",
+	]
+	if auto:
+		_shot_named("oferta")
+
+
 func _to_menu() -> void:
 	state = State.MENU
 	garagem = Garagem.new()
+	build = Build.new()
+	_card_padrao()
 	card_title = "ARRANCADA"
 	card_color = Hud.TEXT
 	card_table = []
@@ -222,16 +272,21 @@ func _start_staging() -> void:
 
 	player = Car.new()
 	player.label = "Voce"
-	player.bands = Tuning.PROFILES[player_profile]
 	player.rng.randomize()
+	build.aplicar(player, Tuning.PROFILES[player_profile])
 	garagem.aplicar(player)
 
 	var names := Tuning.PROFILES.keys()
 	rival_profile = names[randi() % names.size()]
 	rival = Car.new()
 	rival.label = "Rival"
-	rival.bands = Tuning.PROFILES[rival_profile]
 	rival.rng.randomize()
+	# O rival tambem corre com pecas, e ganha mais a cada corrida: sem isso a
+	# sequencia fica mais facil justo quando a sua build fica melhor.
+	var rb := Build.new()
+	for i in mini(Peca.SLOTS.size(), 1 + garagem.corridas / 2):
+		rb.equipar(Peca.sortear(rival.rng))
+	rb.aplicar(rival, Tuning.PROFILES[rival_profile])
 	rival.set_launch(randf_range(0.58, 0.84))
 	ai_shift_point = Tuning.AI_SHIFT_POINT
 
@@ -285,6 +340,7 @@ func _to_result() -> void:
 	var venceu := won()
 	garagem.recolher(player, venceu)
 
+	_card_padrao()
 	card_title = "VENCEU" if venceu else "DERROTA"
 	card_color = Hud.GREEN if venceu else Hud.RED
 	if player.travado:
@@ -316,10 +372,12 @@ func _to_result() -> void:
 		]
 	else:
 		card_lines.append("~corrida %d   ·   %d vitorias" % [garagem.corridas, garagem.vitorias])
-		card_lines.append("~R proxima corrida   ·   M recomeca   ·   ESC sai")
+		card_lines.append("~R continua   ·   M recomeca   ·   ESC sai")
 
 	if auto:
-		_shot_named("resultado")
+		await _shot_named("resultado")
+		if won() and not garagem.acabou:
+			_to_oferta()
 
 
 # ---------------------------------------------------------------- input
@@ -352,9 +410,18 @@ func _input(event: InputEvent) -> void:
 				var q := player.shift_up()
 				if q != "":
 					_set_flash("TROCA " + q.to_upper() if q != "boa" else "boa")
+		State.OFERTA:
+			if k.pressed:
+				var idx := [KEY_1, KEY_2, KEY_3].find(k.keycode)
+				if idx >= 0 and idx < ofertas.size():
+					build.equipar(ofertas[idx])
+					_start_staging()
 		State.RESULT:
 			if k.pressed and k.keycode == KEY_R and not garagem.acabou:
-				_start_staging()
+				if won():
+					_to_oferta()
+				else:
+					_start_staging()
 			elif k.pressed and k.keycode == KEY_M:
 				_to_menu()
 
@@ -522,7 +589,8 @@ func _feed_hud(delta: float) -> void:
 			})
 		_:
 			d.merge({"title": card_title, "title_color": card_color,
-				"lines": card_lines, "table": card_table})
+				"lines": card_lines, "table": card_table, "card_w": card_w,
+				"table_w": card_table_w, "cols": card_cols, "head": card_head, "cols_dim": card_cols_dim})
 	hud.feed(d)
 
 

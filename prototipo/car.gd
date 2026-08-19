@@ -4,13 +4,23 @@ extends RefCounted
 ## numa reta, aceleracao derivada da banda de potencia da marcha atual.
 
 var label := "Player"
+
+# --- numeros efetivos da corrida ---
+# Nascem das constantes de Tuning e sao reescritos pelas pecas equipadas (Build).
+# O carro le daqui, nunca de Tuning: e isso que faz a build mudar a corrida.
 var bands: Array = [70.0, 70.0, 70.0]
+var gear_top: Array = Tuning.GEAR_TOP.duplicate()
+var janela: Vector2 = Tuning.PERFECT
+var heat_limit := Tuning.HEAT_LIMIT
+var heat_rate := Tuning.HEAT_RATE
+var cool_rate := Tuning.COOL_RATE
+var nitro_cap := Tuning.NITRO_CAPACITY
 
 var pos := 0.0
 var speed := 0.0
 var gear := 1
 var heat := 0.0
-var nitro := Tuning.NITRO_CAPACITY
+var nitro := Tuning.NITRO_CAPACITY  # reabastecido por Build.aplicar
 var nitro_on := false
 var blown := false
 var finished_at := -1.0
@@ -50,7 +60,7 @@ func band_name() -> String:
 
 ## 0..1 dentro da faixa da marcha; acima de 1.0 esta no corte.
 func rpm() -> float:
-	return speed / Tuning.GEAR_TOP[gear - 1]
+	return speed / gear_top[gear - 1]
 
 
 func torque_shape(r: float) -> float:
@@ -68,7 +78,7 @@ func shift_up() -> String:
 	if travado:
 		return ""
 	var r := rpm()
-	if r >= Tuning.PERFECT.x and r <= Tuning.PERFECT.y:
+	if r >= janela.x and r <= janela.y:
 		last_shift = "PERFEITA"
 		shift_lock = Tuning.SHIFT_TIME_PERFECT
 		perfect_shifts += 1
@@ -114,7 +124,7 @@ func step(dt: float) -> void:
 
 	var a := 0.0
 	if not blown and shift_lock <= 0.0:
-		a = Tuning.K * (band_power() / 100.0) * torque_shape(rpm()) / Tuning.GEAR_TOP[gear - 1]
+		a = Tuning.K * (band_power() / 100.0) * torque_shape(rpm()) / gear_top[gear - 1]
 		if time < Tuning.LAUNCH_DURATION:
 			var w := 1.0 - time / Tuning.LAUNCH_DURATION
 			a *= lerpf(1.0, launch_mult, w)
@@ -122,26 +132,26 @@ func step(dt: float) -> void:
 	if nitro_on and nitro > 0.0 and not blown:
 		# Quanto mais fundo na faixa vermelha, mais forte o empurrao. E o premio que
 		# torna o risco uma escolha em vez de um erro.
-		var over := clampf((heat - Tuning.HEAT_LIMIT)
-			/ (Tuning.HEAT_MAX - Tuning.HEAT_LIMIT), 0.0, 1.0)
+		var over := clampf((heat - heat_limit)
+			/ (Tuning.HEAT_MAX - heat_limit), 0.0, 1.0)
 		a *= Tuning.NITRO_BOOST * (1.0 + Tuning.OVERBOOST * over)
 		nitro = maxf(0.0, nitro - dt)
-		heat += Tuning.HEAT_RATE * dt
+		heat += heat_rate * dt
 	else:
-		heat -= Tuning.COOL_RATE * dt
+		heat -= cool_rate * dt
 	heat = clampf(heat, 0.0, 2.0)
 
 	# Risco termico: o dado so e rolado enquanto voce esta forcando.
 	if not blown:
 		if heat >= Tuning.HEAT_MAX:
 			blown = true
-		elif heat > Tuning.HEAT_LIMIT:
+		elif heat > heat_limit:
 			# Forcar o calor gasta o motor E rola o dado, na mesma acao.
 			desgaste_motor = minf(1.0, desgaste_motor + Tuning.MOTOR_WEAR * dt)
 			_roll_t += dt
 			while _roll_t >= Tuning.BLOW_ROLL:
 				_roll_t -= Tuning.BLOW_ROLL
-				var f := (heat - Tuning.HEAT_LIMIT) / (Tuning.HEAT_MAX - Tuning.HEAT_LIMIT)
+				var f := (heat - heat_limit) / (Tuning.HEAT_MAX - heat_limit)
 				var risco := lerpf(Tuning.MOTOR_RISK_NOVO, Tuning.MOTOR_RISK_GASTO,
 					desgaste_motor)
 				if rng.randf() < Tuning.BLOW_CHANCE * f * risco * Tuning.BLOW_ROLL:

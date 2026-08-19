@@ -338,7 +338,7 @@ func _draw_card(s: float) -> void:
 
 	var lines: Array = st.get("lines", [])
 	var table: Array = st.get("table", [])
-	var w := 606.0 * s
+	var w: float = float(st.get("card_w", 606.0)) * s
 	var line_h := 31.0 * s
 	var h := (116.0 * s) + (lines.size() + table.size()) * line_h
 	if not table.is_empty():
@@ -356,19 +356,21 @@ func _draw_card(s: float) -> void:
 	# linha a linha, senao os numeros de banda nao alinham entre si.
 	# O bloco da tabela e centrado como UNIDADE: colunas fixas dentro de um cartao
 	# centrado deixariam vao grande de um lado so.
-	var tw := 486.0
+	var tw: float = float(st.get("table_w", 486.0))
 	var x0 := size.x * 0.5 - tw * 0.5 * s
 	if not table.is_empty():
-		var cols := [0.0, 34.0, 190.0, 344.0]
-		var head := ["", "motor", "baixa / media / alta", "carro"]
-		for c in 4:
+		var cols: Array = st.get("cols", [0.0, 34.0, 190.0, 344.0])
+		var apagadas: Array = st.get("cols_dim", [2, 3])
+		var head: Array = st.get("head", ["", "motor", "baixa / media / alta", "carro"])
+		for c in cols.size():
 			if not String(head[c]).is_empty():
 				_text(Vector2(x0 + cols[c] * s, y), head[c], int(15 * s), DIM,
 					HORIZONTAL_ALIGNMENT_LEFT)
 		y += line_h
 		for row in table:
-			for c in 4:
-				var col := TEXT if c <= 1 else DIM
+			for c in cols.size():
+				# Coluna apagada e contexto; a coluna que o jogador COMPARA fica legivel.
+				var col := DIM if c in apagadas else TEXT
 				_text(Vector2(x0 + cols[c] * s, y), row[c], int(20 * s), col,
 					HORIZONTAL_ALIGNMENT_LEFT)
 			y += line_h

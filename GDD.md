@@ -346,11 +346,17 @@ Se **(3)** falhar, a fase 3 precisa de outra ideia antes de construir 25 nós em
 ## 8.4 Estado do protótipo
 
 Implementado: corrida completa (3 fases, largada, troca com janela, nitro com calor e
-overboost), câmera e HUD, carrocerias, e **§4 parcial** — desgaste e quebra de **motor e
-transmissão**, persistindo numa sequência de corridas.
+overboost), câmera e HUD, carrocerias, **§4 parcial** — desgaste e quebra de **motor e
+transmissão** persistindo numa sequência — e **§3 parcial**: peças equipáveis em 5 slots
+(motor, transmissão, câmbio, escape, nitro), com marca e raridade, escolhidas 1 entre 3 a
+cada vitória. O rival também corre com peças, e ganha mais a cada corrida.
 
-Falta de §4: turbo e pneu (dependem de peças e de pisos, que não existem), e o conserto
-(depende da economia). Sem conserto, a sequência acaba quando o motor funde.
+Falta de §4: turbo e pneu (dependem de pisos) e o conserto (depende de economia).
+Falta de §3: bônus de conjunto, inventário e itens passivos.
+
+O caminho peça → número → forma da corrida está medido: sobre o **mesmo** motor base, peças
+de torque abrem +54m aos 5s e peças de alta rotação rendem +37 km/h no topo. É essa
+diferença que o pilar 1 exige, e ela é checada a cada rodada do `sim_check`.
 
 ## 9. Pendências
 

@@ -194,6 +194,39 @@ func _initialize() -> void:
 			% (est["desleixado"].cambio * 100))
 		fails += 1
 
+	# ---------- checagem 6: peca muda a FORMA da corrida ----------
+	# Pilar 1 do GDD: "a build e sentida, nao lida". Duas builds sobre o MESMO
+	# motor base tem que correr diferente; se so mudam o tempo final, sao enfeite.
+	var bandas_base: Array = Tuning.PROFILES["Equilibrado"]
+	var formas := {}
+	for marca in ["Torque", "Alta Rotacao"]:
+		var b := Build.new()
+		b.equipar(Peca.gerar("motor", marca, 2))
+		b.equipar(Peca.gerar("transmissao", marca, 2))
+		var c := Car.new()
+		c.rng.seed = 7
+		b.aplicar(c, bandas_base)
+		c.set_launch(0.70)
+		var p5 := 0.0
+		while c.finished_at < 0.0 and c.time < 120.0:
+			if c.rpm() >= 0.96:
+				c.shift_up()
+			c.step(DT)
+			if p5 == 0.0 and c.time >= 5.0:
+				p5 = c.pos
+		formas[marca] = {"t": c.finished_at, "p5": p5, "top": c.speed}
+	var dif_p5: float = formas["Torque"].p5 - formas["Alta Rotacao"].p5
+	var dif_top: float = formas["Alta Rotacao"].top - formas["Torque"].top
+	print("
+mesmo motor base, pecas opostas: torque %+.0fm aos 5s | alta rotacao %+.0f km/h no topo"
+		% [dif_p5, dif_top * 3.6])
+	if dif_p5 < 8.0:
+		push_error("[6] Pecas de torque nao mudam a largada: so %+.0fm aos 5s" % dif_p5)
+		fails += 1
+	if dif_top < 3.0:
+		push_error("[6] Pecas de alta rotacao nao mudam o topo: so %+.0f km/h" % (dif_top * 3.6))
+		fails += 1
+
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()
 

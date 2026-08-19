@@ -97,6 +97,7 @@ Os mais sensíveis:
 | `K` / `DRAG` | duração da corrida e teto de velocidade da fase 3 |
 | `GEAR_TOP` | onde cada marcha corta. A 7ª é overdrive longa de propósito: o carro **nunca** bate no corte nela, senão o nitro não teria o que empurrar |
 | `PROFILES` | as três curvas de banda. Mexer aqui muda quem lidera cada fase |
+| `Peca.RECEITAS` | o catálogo inteiro de peças, uma linha por marca × slot |
 | `HEAT_RATE` / `BLOW_CHANCE` | quão assustadora é a fase 3 |
 
 ## Checagem
@@ -142,8 +143,22 @@ desgaste foram calibradas:
 Seguro sobrevive e não vence; ganancioso vence quase tudo e morre cedo; forçar
 seletivamente aguenta uma run inteira. É esse o formato que o §4 do GDD pede.
 
+## Peças (§3 do GDD)
+
+Cinco slots — motor, transmissão, câmbio, escape, nitro — e todos escrevem nos números que
+o carro lê durante a corrida ([`build.gd`](build.gd)). Nenhuma peça é enfeite: se um slot
+não muda a forma da corrida, ele não deveria existir.
+
+Toda peça sai de um catálogo de **marca × slot** ([`peca.gd`](peca.gd)), escalado pela
+raridade. A marca é a identidade — Torque, Alta Rotação, Química, Confiabilidade — e é ela
+que faz reconhecer uma build de relance. A raridade escala os números **inclusive os
+negativos**: uma peça Épica tem identidade mais forte, não apenas melhor.
+
+Ao vencer, você escolhe **1 entre 3**. A nova ocupa o slot e a antiga vai embora — sem
+inventário ainda.
+
 ## Fora do escopo (de propósito)
 
-Turbo e pneu (dependem de pisos e de peças), pisos, câmbio automático, mapa, loja,
-inventário, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
+Turbo e pneu (dependem de pisos), pisos, câmbio automático, mapa, loja, inventário,
+bônus de conjunto, itens passivos, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
 construir depois que as três perguntas do §8.3 tiverem resposta jogando.

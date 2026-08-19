@@ -45,8 +45,12 @@ frente do carro: é o ângulo em que a arte foi produzida.
 
 Ela é **rígida e presa ao jogador** — nunca gira, nunca troca de alvo, e o sprite tem
 rotação fixa em vez de billboard. Foto parada não pode esterçar: se a câmera girasse, o
-sprite giraria junto para encará-la e o carro pareceria fazer curva numa reta. O preço é
-que rival muito à frente sai do quadro, e quem informa vira o indicador de gap.
+sprite giraria junto para encará-la e o carro pareceria fazer curva numa reta.
+
+Quando o rival abre, ela **recua pelo próprio eixo** para mantê-lo no quadro — só
+distância, nunca ângulo, então nada gira. `CAM_RIVAL_MARGIN` é a folga que o rival mantém
+à frente da câmera e `CAM_DIST_MAX` é o teto do recuo; passado ele o rival sai do quadro e
+a leitura fica com o indicador de gap.
 
 `CAM_ANGLE_DEG` (38°) é a constante mais delicada do render: como a foto é 3/4, a pista
 precisa fugir na mesma diagonal. Com a câmera no eixo da pista o asfalto corre reto e o

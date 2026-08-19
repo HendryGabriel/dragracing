@@ -165,6 +165,25 @@ func _scene_smoke() -> int:
 		push_error("[4] Vitoria decidida errado: jogador 0.10s mais rapido e perdeu")
 		fails_local += 1
 
+	# A camera recua pelo proprio eixo quando o rival abre. Se recuar de menos, o
+	# rival passa POR TRAS dela e some do quadro justo quando voce mais precisa ver.
+	var cosang: float = cos(deg_to_rad(scene.CAM_ANGLE_DEG))
+	for ahead in [0.0, 6.0, 15.0, 25.0]:
+		var d: float = scene.cam_distance_for(ahead)
+		var frente: float = cosang * d
+		if frente < ahead + 8.0:
+			push_error("[4] Camera perto demais: rival %.0fm na frente, camera so %.0fm"
+				% [ahead, frente])
+			fails_local += 1
+	if not is_equal_approx(scene.cam_distance_for(0.0), scene.CAM_DIST):
+		push_error("[4] Sem rival na frente a camera deveria ficar na distancia base")
+		fails_local += 1
+	# A direcao nao pode depender da distancia, senao recuar giraria o sprite.
+	var dir: Vector3 = scene.cam_dir()
+	if not is_equal_approx(dir.length(), 1.0):
+		push_error("[4] cam_dir nao e unitaria: recuar mudaria o angulo")
+		fails_local += 1
+
 	var ok: bool = scene.state == 3  # 3 = State.RESULT
 	print("\nsmoke da cena: estado final %s apos %.1fs simulados"
 		% ["RESULT" if ok else "TRAVOU (%d)" % scene.state, steps * DT * 2.0])

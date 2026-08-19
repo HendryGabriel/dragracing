@@ -21,13 +21,15 @@ const CAM_ANGLE_DEG := 38.0  # graus fora do eixo da pista
 const CAM_SIDE := -1.0       # lado da camera (-1 = esquerda da pista)
 const CAM_Y := 1.15          # altura, quase na linha dos farois
 const CAM_DIST := 15.0
+const CAM_DIST_MAX := 46.0      # ate onde a camera recua
+const CAM_RIVAL_MARGIN := 9.0   # m que o rival mantem a frente da camera
 #
 # A camera e RIGIDA: sempre o mesmo deslocamento em relacao ao carro do JOGADOR,
 # sem trocar de alvo e sem nunca girar. Nao e preferencia, e limite da arte -- a
 # carroceria e uma foto parada, entao girar a camera obrigaria o sprite a girar
 # junto para continuar encarando ela, e o carro pareceria esterçar numa reta.
-# Custo aceito: rival muito na frente sai do quadro, e quem informa passa a ser
-# o indicador de gap do HUD.
+# Quando o rival abre, a camera RECUA pelo proprio eixo -- muda so a distancia,
+# nunca a direcao. Dollying puro nao gira nada, entao o sprite continua parado.
 
 const ROAD_W := 7.0        # meia largura do asfalto
 
@@ -43,7 +45,9 @@ var rival_profile := "Equilibrado"
 var rev := 0.0             # ponteiro da largada
 var revving := false
 var ai_shift_point := Tuning.AI_SHIFT_POINT
+var cam_dist := CAM_DIST   # recua quando o rival abre; so distancia, nunca angulo
 var auto := false          # corrida automatica (checagem end-to-end)
+var _shot_atras := true
 var _shots: Array = []     # instantes (s) para capturar print no modo --autorace
 var flash := ""            # feedback de troca
 var flash_t := 0.0
@@ -137,8 +141,8 @@ func _build_world() -> void:
 		add_child(_box(Vector3(side, 4.0, Tuning.RACE_DISTANCE), Vector3(0.6, 8.0, 0.6),
 			Color(0.95, 0.72, 0.15)))
 
-	var off := cam_offset()
-	var yaw := atan2(off.x, off.z)
+	var dir := cam_dir()
+	var yaw := atan2(dir.x, dir.z)
 	car_sprite = _car_sprite(Color(0.62, 0.80, 1.0))
 	rival_sprite = _car_sprite(Color(1.0, 0.66, 0.58))
 	car_sprite.rotation.y = yaw
@@ -348,6 +352,18 @@ func _process(delta: float) -> void:
 	if auto and _shots.size() > 0 and state == State.RACING and player.time >= _shots[0]:
 		_shots.remove_at(0)
 		_screenshot()
+	# print forcado com o rival na frente: e o unico enquadramento que o recuo
+	# existe para resolver, e o rival raramente ganha sozinho na corrida automatica
+	if auto and _shot_atras and state == State.RACING and player.time >= 24.0:
+		_shot_atras = false
+		var guarda := rival.pos
+		rival.pos = player.pos + 24.0
+		cam_dist = cam_distance_for(24.0)
+		_update_cars()
+		_update_camera(0.0)
+		_feed_hud(0.0)
+		await _shot_named("rival_na_frente")
+		rival.pos = guarda
 
 
 func _shot_named(nome: String) -> void:
@@ -401,19 +417,36 @@ func _update_cars() -> void:
 	rival_sprite.position = Vector3(LANE, CAR_Y, rival.pos)
 
 
-## Deslocamento fixo da camera em relacao ao carro do jogador.
-static func cam_offset() -> Vector3:
+## Direcao unitaria da camera em relacao ao carro do jogador. E UNITARIA de
+## proposito: recuar vira multiplicar por um escalar, e multiplicar um vetor por
+## escalar nao muda direcao nenhuma -- nem o azimute, nem a inclinacao. E isso
+## que garante que recuar a camera nao gira o sprite.
+static func cam_dir() -> Vector3:
 	var ang := deg_to_rad(CAM_ANGLE_DEG)
-	return Vector3(CAM_SIDE * sin(ang) * CAM_DIST, CAM_Y - CAR_Y * 0.95, cos(ang) * CAM_DIST)
+	return Vector3(CAM_SIDE * sin(ang), (CAM_Y - CAR_Y * 0.95) / CAM_DIST,
+		cos(ang)).normalized()
 
 
-func _update_camera(_delta: float) -> void:
+## Distancia da camera dada a vantagem do rival (positiva = rival na frente).
+## Precisa ser longa o bastante para o rival caber no quadro com folga, senao ele
+## passa POR TRAS da camera e some.
+static func cam_distance_for(ahead: float) -> float:
+	if ahead <= 0.0:
+		return CAM_DIST
+	var por_z := (ahead + CAM_RIVAL_MARGIN) / cos(deg_to_rad(CAM_ANGLE_DEG))
+	return clampf(por_z, CAM_DIST, CAM_DIST_MAX)
+
+
+func _update_camera(delta: float) -> void:
 	if not cam.is_inside_tree():
 		return
-	# Alvo e camera transladam juntos pelo mesmo vetor, entao a direcao de visada
-	# e constante quadro a quadro: a camera avanca, nunca gira.
+	var alvo_dist := cam_distance_for(rival.pos - player.pos)
+	cam_dist = lerpf(cam_dist, alvo_dist, 1.0 - exp(-3.0 * delta))
+
+	# Alvo e camera transladam juntos e a camera so desliza pelo proprio eixo:
+	# a direcao de visada e identica em qualquer distancia.
 	var target := Vector3(-LANE, CAR_Y * 0.95, player.pos)
-	cam.global_position = target + cam_offset()
+	cam.global_position = target + cam_dir() * cam_dist
 	cam.look_at(target)
 
 

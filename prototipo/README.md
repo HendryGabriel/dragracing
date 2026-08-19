@@ -119,8 +119,31 @@ Corrida real end-to-end, sem interação:
 godot --headless --path prototipo --quit-after 2400 -- --autorace
 ```
 
+## Sequência de corridas (§4 do GDD)
+
+As corridas encadeiam e o desgaste **persiste**: forçar o calor ganha a corrida de agora e
+cobra na de depois. Motor gasta acima do limite térmico; câmbio gasta a cada troca errada.
+Nenhum dos dois perde desempenho ao gastar — o que sobe é a chance de estourar, e o dado só
+é rolado no momento do estresse. Quem joga limpo nunca quebra nada.
+
+Sem oficina ainda (depende de economia), então não há conserto: a sequência acaba quando o
+motor funde, e o placar é quantas corridas você venceu antes disso.
+
+`sim_check` simula sequências inteiras por estilo de jogo, que é como as constantes de
+desgaste foram calibradas:
+
+| estilo | corridas até fundir | vitórias |
+|---|---|---|
+| cauteloso (nunca passa do limite) | nunca funde | 0 |
+| **seletivo** (força 1 em 3) | **~28** | **~9** |
+| ganancioso (força sempre) | ~8 | ~7 |
+| desleixado (erra trocas) | nunca funde | 0, câmbio a 100% |
+
+Seguro sobrevive e não vence; ganancioso vence quase tudo e morre cedo; forçar
+seletivamente aguenta uma run inteira. É esse o formato que o §4 do GDD pede.
+
 ## Fora do escopo (de propósito)
 
-Desgaste de peças, quebra graduada, pisos, pneus, câmbio automático, mapa, loja,
-inventário, meta-progressão. Tudo isso está desenhado no GDD e só vale construir
-depois que as três perguntas acima tiverem resposta.
+Turbo e pneu (dependem de pisos e de peças), pisos, câmbio automático, mapa, loja,
+inventário, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
+construir depois que as três perguntas do §8.3 tiverem resposta jogando.

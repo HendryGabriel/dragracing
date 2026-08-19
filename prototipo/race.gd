@@ -64,6 +64,7 @@ var card_color := Color.WHITE
 var card_lines: Array = []
 var card_table: Array = []
 var matchup := ""
+var garagem := Garagem.new()
 
 
 # ---------------------------------------------------------------- setup
@@ -196,6 +197,7 @@ func _build_hud() -> void:
 
 func _to_menu() -> void:
 	state = State.MENU
+	garagem = Garagem.new()
 	card_title = "ARRANCADA"
 	card_color = Hud.TEXT
 	card_table = []
@@ -222,6 +224,7 @@ func _start_staging() -> void:
 	player.label = "Voce"
 	player.bands = Tuning.PROFILES[player_profile]
 	player.rng.randomize()
+	garagem.aplicar(player)
 
 	var names := Tuning.PROFILES.keys()
 	rival_profile = names[randi() % names.size()]
@@ -280,21 +283,41 @@ func won() -> bool:
 func _to_result() -> void:
 	state = State.RESULT
 	var venceu := won()
+	garagem.recolher(player, venceu)
+
 	card_title = "VENCEU" if venceu else "DERROTA"
 	card_color = Hud.GREEN if venceu else Hud.RED
+	if player.travado:
+		card_title = "CAMBIO QUEBRADO"
+		card_color = Hud.AMBER
 	if player.blown:
 		card_title = "MOTOR FUNDIDO"
 		card_color = Hud.RED
+
 	card_table = []
 	card_lines = [
 		"%s   %s" % [player_car,
 			("%.2fs" % player.finished_at) if player.finished_at > 0 else "nao terminou"],
 		"~%s   %s" % [rival_car,
 			("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "nao terminou"],
-		"trocas perfeitas %d   ·   ruins %d" % [player.perfect_shifts, player.bad_shifts],
-		"calor maximo %.0f%%   ·   limite %.0f%%" % [peak_heat * 100, Tuning.HEAT_LIMIT * 100],
-		"~R corre de novo   ·   M troca de motor   ·   ESC sai",
+		"motor %s %.0f%%   ·   cambio %s %.0f%%" % [
+			Garagem.faixa(garagem.motor), garagem.motor * 100,
+			Garagem.faixa(garagem.transmissao), garagem.transmissao * 100],
+		"~trocas ruins %d   ·   calor maximo %.0f%%" % [player.bad_shifts, peak_heat * 100],
 	]
+
+	if garagem.acabou:
+		card_title = "FIM DA SEQUENCIA"
+		card_color = Hud.RED
+		card_lines = [
+			"o motor fundiu na corrida %d" % garagem.corridas,
+			"%d vitorias em %d corridas" % [garagem.vitorias, garagem.corridas],
+			"~M comeca outra sequencia   ·   ESC sai",
+		]
+	else:
+		card_lines.append("~corrida %d   ·   %d vitorias" % [garagem.corridas, garagem.vitorias])
+		card_lines.append("~R proxima corrida   ·   M recomeca   ·   ESC sai")
+
 	if auto:
 		_shot_named("resultado")
 
@@ -330,7 +353,7 @@ func _input(event: InputEvent) -> void:
 				if q != "":
 					_set_flash("TROCA " + q.to_upper() if q != "boa" else "boa")
 		State.RESULT:
-			if k.pressed and k.keycode == KEY_R:
+			if k.pressed and k.keycode == KEY_R and not garagem.acabou:
 				_start_staging()
 			elif k.pressed and k.keycode == KEY_M:
 				_to_menu()
@@ -392,7 +415,7 @@ func _step_race(delta: float) -> void:
 	if auto and player.rpm() >= 0.96:
 		player.shift_up()
 	player.nitro_on = Input.is_physical_key_pressed(KEY_SHIFT) \
-		or (auto and player.pos > Tuning.RACE_DISTANCE * 0.6 and player.heat < 0.75)
+		or (auto and player.pos > Tuning.RACE_DISTANCE * 0.6 and player.heat < 0.95)
 	_drive_ai()
 	player.step(delta)
 	rival.step(delta)
@@ -484,6 +507,11 @@ func _feed_hud(delta: float) -> void:
 				"phase": _phase_name(),
 				"perfect_lo": Tuning.PERFECT.x,
 				"perfect_hi": Tuning.PERFECT.y,
+				"desg_motor": player.desgaste_motor,
+				"desg_cambio": player.desgaste_transmissao,
+				"travado": player.travado,
+				"corrida": garagem.corridas + 1,
+				"vitorias": garagem.vitorias,
 			})
 		State.STAGING:
 			d.merge({

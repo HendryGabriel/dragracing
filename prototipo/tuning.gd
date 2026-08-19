@@ -43,12 +43,35 @@ const LAUNCH_DURATION := 3.0         # s de influencia da largada
 # ---------- Nitro / calor ----------
 const NITRO_CAPACITY := 6.0          # segundos de tanque
 const NITRO_BOOST := 1.75
+## Acima do limite termico o nitro empurra MAIS. Sem isto, a faixa vermelha e so
+## risco sem premio e ninguem entra nela por vontade propria -- o que mata a
+## decisao central da fase 3.
+const OVERBOOST := 0.40
 const HEAT_RATE := 0.20              # calor/s segurando (tanque cheio = 1.20 de calor)
 const COOL_RATE := 0.18              # calor/s solto
 const HEAT_LIMIT := 0.80             # inicio da faixa vermelha
 const HEAT_MAX := 1.15               # funde na hora
 const BLOW_ROLL := 0.25              # intervalo do dado (s)
-const BLOW_CHANCE := 0.45            # chance/s no topo da faixa vermelha
+const BLOW_CHANCE := 0.08            # chance/s no topo da faixa vermelha
+
+# ---------- Desgaste (GDD 4) ----------
+# Regra unica: a acao que gasta e a acao que pode quebrar. Nenhuma peca perde
+# desempenho por estar gasta -- o que sobe e a chance de estourar, e o dado so e
+# rolado no momento do estresse. Jogar limpo quase nao gasta.
+
+## Motor: gasta enquanto voce mantem o calor acima do limite.
+const MOTOR_WEAR := 0.014             # desgaste/s acima da faixa vermelha
+## Multiplicador de risco por estado: motor novo e bem mais seguro que gasto.
+const MOTOR_RISK_NOVO := 0.10
+const MOTOR_RISK_GASTO := 4.00
+
+## Transmissao: gasta a cada troca ERRADA, e so pode quebrar nesse instante.
+const TRANS_WEAR := 0.07             # desgaste por troca ruim
+const TRANS_BREAK := 0.40            # chance de quebrar na troca ruim, x desgaste
+
+## Faixas de estado, so para leitura -- nao mudam desempenho.
+const FAIXA_GASTA := 0.34
+const FAIXA_CRITICA := 0.70
 
 # ---------- Rival ----------
 const AI_SHIFT_POINT := 0.95         # rpm alvo de troca

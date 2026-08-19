@@ -16,6 +16,11 @@ var blown := false
 var finished_at := -1.0
 var time := 0.0
 
+## Desgaste acumulado, 0..1. Persiste entre corridas (ver Garagem).
+var desgaste_motor := 0.0
+var desgaste_transmissao := 0.0
+var travado := false          # transmissao quebrou: preso na marcha atual
+
 var launch_mult := 1.0
 var shift_lock := 0.0
 var last_shift := ""
@@ -60,6 +65,8 @@ func torque_shape(r: float) -> float:
 func shift_up() -> String:
 	if gear >= Tuning.GEARS or shift_lock > 0.0 or blown or finished_at >= 0.0:
 		return ""
+	if travado:
+		return ""
 	var r := rpm()
 	if r >= Tuning.PERFECT.x and r <= Tuning.PERFECT.y:
 		last_shift = "PERFEITA"
@@ -73,6 +80,15 @@ func shift_up() -> String:
 		shift_lock = Tuning.SHIFT_TIME_BAD
 		speed *= 1.0 - Tuning.BAD_SHIFT_SPEED_LOSS
 		bad_shifts += 1
+		# A acao que gasta e a acao que pode quebrar: o dado da transmissao so e
+		# rolado aqui, no erro de troca. Quem nao erra nunca quebra o cambio.
+		if rng.randf() < Tuning.TRANS_BREAK * desgaste_transmissao:
+			travado = true
+			last_shift = "CAMBIO QUEBROU"
+			desgaste_transmissao = 1.0
+			last_shift_at = time
+			return last_shift
+		desgaste_transmissao = minf(1.0, desgaste_transmissao + Tuning.TRANS_WEAR)
 	gear += 1
 	last_shift_at = time
 	return last_shift
@@ -104,7 +120,11 @@ func step(dt: float) -> void:
 			a *= lerpf(1.0, launch_mult, w)
 
 	if nitro_on and nitro > 0.0 and not blown:
-		a *= Tuning.NITRO_BOOST
+		# Quanto mais fundo na faixa vermelha, mais forte o empurrao. E o premio que
+		# torna o risco uma escolha em vez de um erro.
+		var over := clampf((heat - Tuning.HEAT_LIMIT)
+			/ (Tuning.HEAT_MAX - Tuning.HEAT_LIMIT), 0.0, 1.0)
+		a *= Tuning.NITRO_BOOST * (1.0 + Tuning.OVERBOOST * over)
 		nitro = maxf(0.0, nitro - dt)
 		heat += Tuning.HEAT_RATE * dt
 	else:
@@ -116,11 +136,15 @@ func step(dt: float) -> void:
 		if heat >= Tuning.HEAT_MAX:
 			blown = true
 		elif heat > Tuning.HEAT_LIMIT:
+			# Forcar o calor gasta o motor E rola o dado, na mesma acao.
+			desgaste_motor = minf(1.0, desgaste_motor + Tuning.MOTOR_WEAR * dt)
 			_roll_t += dt
 			while _roll_t >= Tuning.BLOW_ROLL:
 				_roll_t -= Tuning.BLOW_ROLL
 				var f := (heat - Tuning.HEAT_LIMIT) / (Tuning.HEAT_MAX - Tuning.HEAT_LIMIT)
-				if rng.randf() < Tuning.BLOW_CHANCE * f * Tuning.BLOW_ROLL:
+				var risco := lerpf(Tuning.MOTOR_RISK_NOVO, Tuning.MOTOR_RISK_GASTO,
+					desgaste_motor)
+				if rng.randf() < Tuning.BLOW_CHANCE * f * risco * Tuning.BLOW_ROLL:
 					blown = true
 					break
 

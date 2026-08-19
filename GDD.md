@@ -46,6 +46,8 @@ O nitro **não** é um empurrão de clique. É um recurso contínuo com risco:
 - Soltou → esfria (taxa definida pelo **escape**).
 - Passou do teto térmico (definido pelo **motor**) → risco de fundir (ver §4).
 
+**Acima do limite térmico o nitro empurra mais forte.** Isso não estava no desenho original e foi descoberto medindo: sem esse prêmio, a faixa vermelha é risco puro, o nitro seguro já rende o bastante, e **nenhum jogador racional entra na zona de risco alguma vez** — o que apaga a decisão central da fase 3. Com o prêmio, o calor deixa de ser um medidor de perigo e vira o botão de risco/recompensa: quanto mais fundo no vermelho, mais empurrão e mais chance de fundir.
+
 **O nitro não é exclusivo da fase 3.** Nada impede queimar na largada ou no meio da corrida — só que aí você chega no topo com o motor quente. A decisão está distribuída pelos 30 segundos, sem botão novo.
 
 **Formato do tanque é escolha de build** (definido pela peça de nitro equipada):
@@ -340,6 +342,15 @@ Se **(2)** falhar, todo o sistema de bandas, marcas, builds e loot desaba junto 
 Se **(3)** falhar, a fase 3 precisa de outra ideia antes de construir 25 nós em volta dela.
 
 ---
+
+## 8.4 Estado do protótipo
+
+Implementado: corrida completa (3 fases, largada, troca com janela, nitro com calor e
+overboost), câmera e HUD, carrocerias, e **§4 parcial** — desgaste e quebra de **motor e
+transmissão**, persistindo numa sequência de corridas.
+
+Falta de §4: turbo e pneu (dependem de peças e de pisos, que não existem), e o conserto
+(depende da economia). Sem conserto, a sequência acaba quando o motor funde.
 
 ## 9. Pendências
 

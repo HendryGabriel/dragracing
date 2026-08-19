@@ -62,6 +62,47 @@ func _duel(bands_a: Array, bands_b: Array) -> Dictionary:
 		"cross_pct": cross / Tuning.RACE_DISTANCE * 100.0}
 
 
+## Simula uma sequencia inteira ate o motor fundir, num estilo de jogo.
+## E aqui que o segundo pilar do GDD ("ganancia tem preco com memoria") vira
+## numero: se o ganancioso durar o mesmo que o cauteloso, o sistema nao existe.
+func _carreira(estilo: String, seed_v: int, ref: float) -> Dictionary:
+	var g := Garagem.new()
+	while not g.acabou and g.corridas < 60:
+		var c := Car.new()
+		c.bands = Tuning.PROFILES["Equilibrado"]
+		c.rng.seed = seed_v * 1000 + g.corridas
+		c.set_launch(0.70)
+		g.aplicar(c)
+		var shift_at := 0.96
+		var hold := 0.0
+		match estilo:
+			"cauteloso": hold = 0.75
+			"ganancioso": hold = 0.95
+			"seletivo": hold = 0.95 if g.corridas % 3 == 0 else 0.75
+			"desleixado": shift_at = 0.70
+		while c.finished_at < 0.0 and not c.blown and c.time < 120.0:
+			if c.rpm() >= shift_at:
+				c.shift_up()
+			c.nitro_on = hold > 0.0 and c.nitro > 0.0 				and c.pos > Tuning.RACE_DISTANCE * 0.60 and c.heat < hold
+			c.step(DT)
+		g.recolher(c, c.finished_at > 0.0 and c.finished_at < ref)
+	return {"corridas": g.corridas, "vitorias": g.vitorias, "motor": g.motor,
+		"cambio": g.transmissao}
+
+
+func _media(estilo: String, ref: float) -> Dictionary:
+	var cs := 0.0
+	var vs := 0.0
+	var cambio := 0.0
+	var n := 12
+	for i in n:
+		var r := _carreira(estilo, i + 1, ref)
+		cs += r.corridas
+		vs += r.vitorias
+		cambio += r.cambio
+	return {"corridas": cs / n, "vitorias": vs / n, "cambio": cambio / n}
+
+
 func _initialize() -> void:
 	var fails := 0
 	var clean := {}
@@ -119,6 +160,39 @@ func _initialize() -> void:
 		push_error("[3] Nitro sem efeito util: ganho de apenas %.2fs" % (base - seguro.t))
 		fails += 1
 	print("nitro conservador (calor < 0.78): ganho de %.2fs sem risco" % (base - seguro.t))
+
+	# ---------- checagem 5: ganancia cobra ----------
+	# Referencia = o tempo de quem joga seguro. A pergunta que importa nao e
+	# "voce termina?", e "forcar bate quem nao forca?".
+	var ref: float = seguro.t - 0.02
+	print("
+=== sequencias ate o motor fundir (media de 12) ===")
+	var est := {}
+	for estilo in ["cauteloso", "seletivo", "ganancioso", "desleixado"]:
+		var m := _media(estilo, ref)
+		est[estilo] = m
+		print("%-12s %5.1f corridas | %5.1f vitorias | cambio %.0f%%"
+			% [estilo, m.corridas, m.vitorias, m.cambio * 100])
+
+	if est["ganancioso"].corridas >= est["cauteloso"].corridas * 0.75:
+		push_error("[5] Ganancia nao cobra: ganancioso dura %.1f e cauteloso %.1f"
+			% [est["ganancioso"].corridas, est["cauteloso"].corridas])
+		fails += 1
+	if est["ganancioso"].vitorias <= est["cauteloso"].vitorias:
+		push_error("[5] Ganancia nao paga: ganancioso vence %.1f e cauteloso %.1f"
+			% [est["ganancioso"].vitorias, est["cauteloso"].vitorias])
+		fails += 1
+	# O jeito de jogar que o GDD pressupoe -- forcar so nas corridas que importam --
+	# tem que aguentar uma run inteira (~25 corridas). Se nao aguentar, forcar nunca
+	# e opcao e a fase 3 vira sempre a mesma decisao.
+	if est["seletivo"].corridas < 20.0:
+		push_error("[5] Forcar seletivamente nao aguenta uma run: so %.1f corridas"
+			% est["seletivo"].corridas)
+		fails += 1
+	if est["desleixado"].cambio < 0.5:
+		push_error("[5] Errar troca nao gasta o cambio: so %.0f%%"
+			% (est["desleixado"].cambio * 100))
+		fails += 1
 
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()

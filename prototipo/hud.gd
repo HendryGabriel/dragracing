@@ -115,6 +115,7 @@ func _draw() -> void:
 	match int(st.get("state", 0)):
 		2:  # RACING
 			_draw_gap(s)
+			_draw_estado(s)
 			_draw_cluster(s)
 			_draw_flash(s)
 		1:  # STAGING
@@ -151,6 +152,45 @@ func _draw_cluster(s: float) -> void:
 	var inner_w := w - 372.0 * s
 	_draw_lamps(Rect2(inner_x, r.position.y + 22.0 * s, inner_w, 26.0 * s), s)
 	_draw_gauges(Rect2(inner_x, r.position.y + 66.0 * s, inner_w, 26.0 * s), s)
+
+
+## Estado das pecas. Enche na direcao do perigo, igual a barra de calor -- e o
+## mesmo idioma: quanto mais cheia, maior a chance de quebrar. Desgaste NAO tira
+## desempenho, entao a barra e aviso, nunca penalidade ja aplicada.
+func _draw_estado(s: float) -> void:
+	var w := 420.0 * s
+	var h := 30.0 * s
+	var cluster_top := size.y - 112.0 * s - 26.0 * s
+	var r := Rect2(size.x * 0.5 - w * 0.5, cluster_top - h - 10.0 * s, w, h)
+	_panel(r, 10.0 * s, Color(SURFACE, 0.80), Color(EDGE, 0.7))
+
+	var bar_w := 110.0 * s
+	var bar_h := 9.0 * s
+	var cy := r.position.y + h * 0.5
+	var pares := [
+		["MOTOR", float(st.get("desg_motor", 0.0)), false],
+		["CAMBIO", float(st.get("desg_cambio", 0.0)), bool(st.get("travado", false))],
+	]
+	for i in pares.size():
+		var rotulo: String = pares[i][0]
+		var d: float = clampf(pares[i][1], 0.0, 1.0)
+		var quebrado: bool = pares[i][2]
+		var bx := r.position.x + (16.0 + i * 216.0) * s
+		_micro(Vector2(bx + 28.0 * s, cy), rotulo, DIM, int(10 * s))
+
+		var br := Rect2(bx + 62.0 * s, cy - bar_h * 0.5, bar_w, bar_h)
+		draw_colored_polygon(_cham(br, 3.0 * s), Color(0.0, 0.0, 0.0, 0.40))
+		var col := TEXT
+		if quebrado or d >= 0.70:
+			col = RED
+		elif d >= 0.34:
+			col = AMBER
+		var f := 1.0 if quebrado else d
+		if f > 0.001:
+			draw_colored_polygon(_cham(
+				Rect2(br.position, Vector2(maxf(bar_w * f, 6.0 * s), bar_h)), 3.0 * s), col)
+		if quebrado:
+			_text(Vector2(br.position.x + bar_w + 30.0 * s, cy), "QUEBRADO", int(13 * s), RED)
 
 
 ## Faixa de giro em lampadas: ambar subindo, verde na janela de troca, vermelho
@@ -233,6 +273,8 @@ func _draw_gap(s: float) -> void:
 
 	_text(Vector2(cx, 122.0 * s),
 		"%s   ·   %.0f de %.0f m" % [st.phase, st.pos, st.dist], int(18 * s), DIM)
+	_text(Vector2(cx, 146.0 * s), "corrida %d   ·   %d vitorias"
+		% [int(st.get("corrida", 1)), int(st.get("vitorias", 0))], int(15 * s), DIM)
 
 
 ## A arvore de largada, a assinatura do painel: as tres ambares sobem com o giro

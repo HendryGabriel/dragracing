@@ -62,6 +62,12 @@ Carro novo: jogue o `.png` em `cars/` e adicione o nome (sem extensão) em
 [`cars.gd`](cars.gd). A lista é explícita de propósito — varrer `res://` com `DirAccess`
 se comporta diferente no editor e no build exportado.
 
+**Confira para que lado o bico aponta.** As fotos não vêm todas do mesmo lado: 21
+apontam para a direita e 4 para a esquerda (`kombi`, `civic`, `bmw m3`,
+`subaru impreza`). As da esquerda entram em `Cars.FLIP` e são espelhadas em tempo de
+execução, senão correm de costas. Espelhar inverte os emblemas delas — incômodo bem
+menor que um carro andando de ré.
+
 > **Falta escala por carro.** Todas as fotos têm o carro preenchendo o quadro, então
 > `CAR_PIXEL_SIZE` único faz a Kombi sair do tamanho de uma Miata. Precisa de um fator
 > de escala por carroceria, calibrado no olho.

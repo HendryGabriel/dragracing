@@ -17,6 +17,13 @@ const ALL := [
 	"porsche 911 1970", "porsche 911", "subaru impreza", "supra mk4", "supra mk5",
 ]
 
+## Fotos que vieram do lado oposto: o bico aponta para a ESQUERDA enquanto as
+## outras 21 apontam para a direita. Sem espelhar, esses carros correm de costas.
+## Espelhar inverte os emblemas deles, mas emblema ao contrario passa despercebido
+## e carro andando de re nao.
+const FLIP := ["kombi", "civic", "bmw m3", "subaru impreza"]
+
+
 ## Carro de cada perfil de motor do prototipo.
 const BY_PROFILE := {
 	"Torque": "mustang 1969",
@@ -31,3 +38,7 @@ static func texture(car_name: String) -> Texture2D:
 
 static func random_name(rng: RandomNumberGenerator) -> String:
 	return ALL[rng.randi() % ALL.size()]
+
+
+static func flipped(car_name: String) -> bool:
+	return car_name in FLIP

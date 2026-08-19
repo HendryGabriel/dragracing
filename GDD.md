@@ -155,7 +155,7 @@ Peça não é só número — ela **pertence a uma marca**, e a marca é o arqu�
 **Carroceria = o carro.** É a escolha de pré-run e define os stats base (curva de bandas inicial).
 **Aerofólio = puramente visual.**
 
-**Formato da arte:** foto em 3/4 frontal, fundo transparente, carro **branco** (a pintura entra por tingimento, então uma imagem serve para todas as cores) e **sem rodas** — as caixas de roda ficam vazias de propósito. Roda é um slot de equipamento (§3.2), e sua arte é composta por cima da carroceria. Isso é o que permite trocar de pneu e o jogador **ver** a troca.
+**Formato da arte:** foto em 3/4 frontal **e sempre do mesmo lado do carro** — misturar fotos tiradas do lado oposto faz uns carros correrem de costas, e o jogo passa a precisar espelhar caso a caso (o que inverte emblemas). Fundo transparente, carro **branco** (a pintura entra por tingimento, então uma imagem serve para todas as cores) e **sem rodas** — as caixas de roda ficam vazias de propósito. Roda é um slot de equipamento (§3.2), e sua arte é composta por cima da carroceria. Isso é o que permite trocar de pneu e o jogador **ver** a troca.
 
 Os carros formam uma **escada de poder pura** (estilo Need for Speed): Tier 1 é claramente mais fraco que Tier 3. Carros novos são desbloqueados vencendo runs.
 

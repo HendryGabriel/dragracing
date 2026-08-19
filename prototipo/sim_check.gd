@@ -184,6 +184,13 @@ func _scene_smoke() -> int:
 		push_error("[4] cam_dir nao e unitaria: recuar mudaria o angulo")
 		fails_local += 1
 
+	# Um nome errado em Cars.FLIP nao da erro: o carro so continua correndo de
+	# costas e ninguem percebe ate ver em movimento.
+	for nome in Cars.FLIP:
+		if not (nome in Cars.ALL):
+			push_error("[4] Cars.FLIP tem \"%s\", que nao existe em Cars.ALL" % nome)
+			fails_local += 1
+
 	var ok: bool = scene.state == 3  # 3 = State.RESULT
 	print("\nsmoke da cena: estado final %s apos %.1fs simulados"
 		% ["RESULT" if ok else "TRAVOU (%d)" % scene.state, steps * DT * 2.0])

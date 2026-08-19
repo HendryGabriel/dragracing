@@ -234,8 +234,16 @@ func _start_staging() -> void:
 
 	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
 	rival_car = Cars.random_name(rival.rng)
+	if auto:
+		# rival fixo numa foto espelhada: assim o print de checagem sempre exercita
+		# o caminho do flip, em vez de depender do sorteio
+		rival_car = Cars.FLIP[0]
 	car_sprite.texture = Cars.texture(player_car)
 	rival_sprite.texture = Cars.texture(rival_car)
+	# Algumas fotos vieram do lado oposto e precisam ser espelhadas para o carro
+	# apontar no sentido da corrida.
+	car_sprite.flip_h = Cars.flipped(player_car)
+	rival_sprite.flip_h = Cars.flipped(rival_car)
 
 	matchup = "%s (%s)   x   %s (%s)" % [player_profile, player_car,
 		rival_profile, rival_car]

@@ -87,10 +87,32 @@ menor que um carro andando de ré.
 > `CAR_PIXEL_SIZE` único faz a Kombi sair do tamanho de uma Miata. Precisa de um fator
 > de escala por carroceria, calibrado no olho.
 
-> **Falta a arte de roda.** As caixas de roda estão vazias nas fotos, e isso é
-> intencional: Roda é um slot de equipamento e a arte entra composta por cima. Enquanto
-> ela não existe, os carros correm sem roda. Precisa de PNGs de pneu/roda com o mesmo
-> ângulo 3/4 e um ponto de ancoragem por carroceria.
+## Rodas
+
+As fotos vêm sem roda, e isso é intencional: Roda é um slot de equipamento, então a arte
+entra **por cima** em tempo de execução — nunca assada dentro da foto. É o que vai permitir
+ver o pneu trocar.
+
+[`ferramentas/detectar_rodas.py`](../ferramentas/detectar_rodas.py) mede onde ficam as
+caixas de roda em cada foto e grava [`rodas.json`](rodas.json).
+[`ferramentas/gerar_roda.py`](../ferramentas/gerar_roda.py) desenha a arte
+([`roda.png`](roda.png)), sempre circular — o achatamento de 3/4 vem da escala no jogo, que
+sai do arco medido, então uma arte só serve para os 25 carros.
+
+```bash
+python ferramentas/detectar_rodas.py --conferir   # gera PNGs de conferência
+```
+
+**A detecção acerta 20 dos 25.** O paralama interno não tem aparência consistente: em umas
+fotos é preto, em outras cinza claro, e em algumas se funde com a grade ou com a sombra.
+O detector tenta limiares crescentes até achar um par plausível, usa a **coroa do arco**
+como eixo (imune à sombra que vaza para o lado) e tira o **tamanho da distância entre
+eixos**, porque a mancha acerta o centro mas não o raio.
+
+> **Cinco carros ainda sem medida** — `dodge charger 1970`, `Initial D carro`,
+> `lancer evo x`, `mclaren senna`, `mustang dark horse`. Eles correm sem roda, sem quebrar
+> nada. Para resolver, o caminho honesto é medir na mão: abrir o PNG de conferência, ler o
+> centro do arco e escrever a entrada em `rodas.json`.
 
 ## Interface
 

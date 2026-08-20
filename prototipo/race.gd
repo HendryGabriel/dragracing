@@ -81,11 +81,21 @@ var card_head: Array = ["", "motor", "baixa / media / alta", "carro"]
 var card_cols_dim: Array = [2, 3]
 var garagem_aviso := ""
 var menu_idx := 0
+## Onde ficam as caixas de roda em cada foto, medidas por
+## ferramentas/detectar_rodas.py. Carro sem medida simplesmente corre sem roda.
+var rodas_anchors: Dictionary = {}
+var rodas_player: Array = []
+var rodas_rival: Array = []
 
 
 # ---------------------------------------------------------------- setup
 
 func _ready() -> void:
+	var f := FileAccess.open("res://rodas.json", FileAccess.READ)
+	if f != null:
+		var lido = JSON.parse_string(f.get_as_text())
+		if lido is Dictionary:
+			rodas_anchors = lido
 	_build_world()
 	_build_hud()
 	_to_menu()
@@ -167,10 +177,55 @@ func _build_world() -> void:
 	add_child(car_sprite)
 	add_child(rival_sprite)
 
+	rodas_player = _criar_rodas(car_sprite)
+	rodas_rival = _criar_rodas(rival_sprite)
+
 	cam = Camera3D.new()
 	cam.fov = RACE_FOV
 	cam.far = 900.0
 	add_child(cam)
+
+
+## As rodas sao FILHAS da carroceria: assim herdam posicao e rotacao de graca, e
+## so preciso do deslocamento medido na foto. Roda e um slot de equipamento, entao
+## a arte nunca e assada dentro da carroceria -- ela entra por cima, aqui.
+func _criar_rodas(corpo: Sprite3D) -> Array:
+	var lista: Array = []
+	for i in 2:
+		var r := Sprite3D.new()
+		r.texture = load("res://roda.png")
+		r.pixel_size = 1.0 / 256.0   # textura de 256px vira 1m; a escala faz o resto
+		r.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+		r.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		r.alpha_scissor_threshold = 0.35
+		r.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		r.visible = false
+		corpo.add_child(r)
+		lista.append(r)
+	return lista
+
+
+## Posiciona as duas rodas de um carro a partir das medidas da foto.
+func _por_rodas(corpo: Sprite3D, rodas: Array, nome: String) -> void:
+	var med: Array = rodas_anchors.get(nome, [])
+	if med.size() < 2 or corpo.texture == null:
+		for r in rodas:
+			r.visible = false
+		return
+	var tw := float(corpo.texture.get_width())
+	var th := float(corpo.texture.get_height())
+	for i in 2:
+		var a: Dictionary = med[i]
+		# Carroceria espelhada move a caixa de roda junto: sem isto a roda do carro
+		# espelhado fica do lado errado.
+		var cx: float = 1.0 - float(a.cx) if corpo.flip_h else float(a.cx)
+		var r: Sprite3D = rodas[i]
+		r.position = Vector3((cx - 0.5) * tw * CAR_PIXEL_SIZE,
+			(0.5 - float(a.cy)) * th * CAR_PIXEL_SIZE, 0.04)
+		r.scale = Vector3(2.0 * float(a.rx) * tw * CAR_PIXEL_SIZE,
+			2.0 * float(a.ry) * th * CAR_PIXEL_SIZE, 1.0)
+		r.modulate = corpo.modulate
+		r.visible = true
 
 
 func _box(pos: Vector3, size: Vector3, col: Color) -> MeshInstance3D:
@@ -292,6 +347,7 @@ func _preview_menu() -> void:
 	# Sem tingir: na vitrine e o carro, nao o "seu carro" contra o do rival.
 	car_sprite.modulate = Color(1, 1, 1)
 	rival_sprite.visible = false
+	_por_rodas(car_sprite, rodas_player, player_car)
 
 
 func _start_staging() -> void:
@@ -335,6 +391,8 @@ func _start_staging() -> void:
 	# apontar no sentido da corrida.
 	car_sprite.flip_h = Cars.flipped(player_car)
 	rival_sprite.flip_h = Cars.flipped(rival_car)
+	_por_rodas(car_sprite, rodas_player, player_car)
+	_por_rodas(rival_sprite, rodas_rival, rival_car)
 
 	matchup = "%s (%s)   x   %s (%s)" % [player_profile, player_car,
 		rival_profile, rival_car]

@@ -227,6 +227,36 @@ mesmo motor base, pecas opostas: torque %+.0fm aos 5s | alta rotacao %+.0f km/h 
 		push_error("[6] Pecas de alta rotacao nao mudam o topo: so %+.0f km/h" % (dif_top * 3.6))
 		fails += 1
 
+	# ---------- checagem 7: inventario ----------
+	# A reserva so vale alguma coisa se tiver teto: com espaco infinito o jogador
+	# nunca abre mao de nada e escolher deixa de custar.
+	var b := Build.new()
+	var destinos := PackedStringArray()
+	for i in 4:
+		destinos.append(b.equipar_guardando(Peca.gerar("motor", Peca.MARCAS[i], 0)))
+	print("
+reserva ao trocar 4 motores seguidos: %s (teto %d)"
+		% [", ".join(destinos), Build.RESERVA_MAX])
+	if destinos[0] != "":
+		push_error("[7] Slot vazio nao devia mandar nada para a reserva")
+		fails += 1
+	if b.reserva.size() > Build.RESERVA_MAX:
+		push_error("[7] Reserva estourou o teto: %d" % b.reserva.size())
+		fails += 1
+	if destinos[3] != "sucata":
+		push_error("[7] Com a reserva cheia a peca antiga tinha que virar sucata, veio \"%s\""
+			% destinos[3])
+		fails += 1
+
+	# Trocar duas vezes tem que voltar ao estado original, senao a troca perde peca.
+	var antes: Peca = b.pecas["motor"]
+	var guardada: Peca = b.reserva[0]
+	b.trocar_reserva(0)
+	b.trocar_reserva(0)
+	if b.pecas["motor"] != antes or b.reserva[0] != guardada:
+		push_error("[7] Trocar com a reserva duas vezes nao volta ao original")
+		fails += 1
+
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()
 

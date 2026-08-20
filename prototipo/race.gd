@@ -1,11 +1,12 @@
 extends Node3D
-## Prototipo de corrida. Greybox: cubos numa reta, sem arte, sem mapa, sem pecas.
+## Prototipo de corrida. Sequencia de corridas com pecas e desgaste; sem mapa,
+## sem loja e sem economia ainda.
 ## Existe para responder tres perguntas:
 ##   1. 20 corridas seguidas e voce ainda quer a 21a?
 ##   2. Da pra SENTIR a diferenca entre torque e alta rotacao em 30s?
 ##   3. Segurar o nitro ate quase estourar da frio na barriga?
 
-enum State { MENU, STAGING, RACING, RESULT, OFERTA }
+enum State { MENU, STAGING, RACING, RESULT, OFERTA, GARAGEM }
 
 const LANE := 4.3          # afastamento lateral de cada carro
 const POST_SPACING := 20.0 # m entre postes de referencia
@@ -72,6 +73,7 @@ var card_table_w := 486.0
 var card_cols: Array = [0.0, 34.0, 190.0, 344.0]
 var card_head: Array = ["", "motor", "baixa / media / alta", "carro"]
 var card_cols_dim: Array = [2, 3]
+var garagem_aviso := ""
 
 
 # ---------------------------------------------------------------- setup
@@ -237,10 +239,28 @@ func _to_oferta() -> void:
 			equipadas.append("%s %s" % [linha[0], linha[1]])
 	card_lines = [
 		"~equipado: %s" % ("nada ainda" if equipadas.is_empty() else "   ·   ".join(equipadas)),
-		"~a nova ocupa o slot e a antiga vai embora",
+		"~a antiga vai para a reserva; com a reserva cheia, vira sucata",
 	]
 	if auto:
-		_shot_named("oferta")
+		await _shot_named("oferta")
+		_to_garagem(_aviso_troca(build.equipar_guardando(ofertas[0])))
+
+
+## A garagem e onde a build fica legivel, e o unico lugar em que a reserva serve
+## para alguma coisa. Passa por ela toda corrida, de proposito: o GDD pede que a
+## build seja sentida, e para isso ela precisa estar na frente do jogador.
+func _aviso_troca(destino: String) -> String:
+	match destino:
+		"reserva": return "a peca antiga foi para a reserva"
+		"sucata": return "reserva cheia: a peca antiga virou sucata"
+		_: return ""
+
+
+func _to_garagem(aviso: String) -> void:
+	state = State.GARAGEM
+	garagem_aviso = aviso
+	if auto:
+		_shot_named("garagem")
 
 
 func _to_menu() -> void:
@@ -410,18 +430,25 @@ func _input(event: InputEvent) -> void:
 				var q := player.shift_up()
 				if q != "":
 					_set_flash("TROCA " + q.to_upper() if q != "boa" else "boa")
+		State.GARAGEM:
+			if k.pressed:
+				if k.keycode == KEY_SPACE:
+					_start_staging()
+				else:
+					var ri := [KEY_1, KEY_2].find(k.keycode)
+					if ri >= 0 and build.trocar_reserva(ri):
+						_to_garagem("")
 		State.OFERTA:
 			if k.pressed:
 				var idx := [KEY_1, KEY_2, KEY_3].find(k.keycode)
 				if idx >= 0 and idx < ofertas.size():
-					build.equipar(ofertas[idx])
-					_start_staging()
+					_to_garagem(_aviso_troca(build.equipar_guardando(ofertas[idx])))
 		State.RESULT:
 			if k.pressed and k.keycode == KEY_R and not garagem.acabou:
 				if won():
 					_to_oferta()
 				else:
-					_start_staging()
+					_to_garagem("")
 			elif k.pressed and k.keycode == KEY_M:
 				_to_menu()
 
@@ -587,6 +614,21 @@ func _feed_hud(delta: float) -> void:
 				"launch_hi": Tuning.LAUNCH_GREEN.y,
 				"matchup": matchup,
 			})
+		State.GARAGEM:
+			var pv: Dictionary = build.previa(Tuning.PROFILES[player_profile])
+			var eq: Array = []
+			for slot in Peca.SLOTS:
+				if build.pecas.has(slot):
+					var p: Peca = build.pecas[slot]
+					eq.append([slot, "%s %s" % [p.marca, Peca.RARIDADES[p.raridade]], p.resumo()])
+				else:
+					eq.append([slot, "-", ""])
+			var res: Array = []
+			for p in build.reserva:
+				res.append(["%s %s" % [p.nome(), Peca.RARIDADES[p.raridade]], p.resumo()])
+			d.merge({"equipadas": eq, "reserva": res, "aviso": garagem_aviso,
+				"bandas": pv.bandas, "heat_limit": pv.heat_limit, "janela": pv.janela,
+				"nitro_cap": pv.nitro_cap})
 		_:
 			d.merge({"title": card_title, "title_color": card_color,
 				"lines": card_lines, "table": card_table, "card_w": card_w,

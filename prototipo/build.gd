@@ -8,9 +8,43 @@ extends RefCounted
 
 var pecas: Dictionary = {}   # slot -> Peca
 
+## Reserva. O limite e o que faz a escolha doer: com espaco infinito voce nunca
+## abre mao de nada, e escolher deixa de custar.
+const RESERVA_MAX := 2
+var reserva: Array = []
+
 
 func equipar(p: Peca) -> void:
 	pecas[p.slot] = p
+
+
+## Equipa mandando a peca antiga para a reserva. Se a reserva estiver cheia, a
+## antiga vira sucata -- e o custo real de ter so dois espacos.
+## Retorna o que aconteceu com a antiga: "", "reserva" ou "sucata".
+func equipar_guardando(p: Peca) -> String:
+	var antiga: Peca = pecas.get(p.slot, null)
+	pecas[p.slot] = p
+	if antiga == null:
+		return ""
+	if reserva.size() < RESERVA_MAX:
+		reserva.append(antiga)
+		return "reserva"
+	return "sucata"
+
+
+## Troca a peca de reserva i com a equipada do MESMO slot. Como toda peca carrega
+## seu slot, a troca nunca e ambigua e nao precisa de alvo.
+func trocar_reserva(i: int) -> bool:
+	if i < 0 or i >= reserva.size():
+		return false
+	var nova: Peca = reserva[i]
+	var antiga: Peca = pecas.get(nova.slot, null)
+	pecas[nova.slot] = nova
+	if antiga == null:
+		reserva.remove_at(i)
+	else:
+		reserva[i] = antiga
+	return true
 
 
 func aplicar(c: Car, bandas_base: Array) -> void:
@@ -68,6 +102,21 @@ func sortear_ofertas(rng: RandomNumberGenerator, n := 3) -> Array:
 		vistos[chave] = true
 		ofertas.append(p)
 	return ofertas
+
+
+## Os numeros que a build produz, sem precisar de uma corrida. E o que torna a
+## build VISIVEL: o jogador ve a forma do carro, nao so a lista de pecas.
+func previa(bandas_base: Array) -> Dictionary:
+	var c := Car.new()
+	aplicar(c, bandas_base)
+	return {
+		"bandas": c.bands.duplicate(),
+		"heat_limit": c.heat_limit,
+		"cool_rate": c.cool_rate,
+		"janela": c.janela,
+		"nitro_cap": c.nitro_cap,
+		"gear_top": c.gear_top.duplicate(),
+	}
 
 
 ## Linha por slot para a ficha do carro. Slot vazio aparece, para o jogador ver

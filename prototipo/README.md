@@ -1,8 +1,8 @@
 # Protótipo de corrida
 
-Greybox. Sem arte, sem mapa, sem peças, sem loja. Existe só para responder as três
-perguntas do §8.3 do [GDD](../GDD.md) — se qualquer uma falhar, o design muda antes
-de qualquer sistema ser construído.
+Sequência de corridas com carrocerias, peças e desgaste. Sem mapa, sem loja e sem
+economia. Existe para responder as três perguntas do §8.3 do [GDD](../GDD.md) — se
+qualquer uma falhar, o design muda antes de o resto ser construído.
 
 1. Você joga 20 corridas seguidas e ainda quer a 21ª?
 2. Dá pra **sentir** a diferença entre torque e alta rotação numa corrida de 30s?
@@ -26,7 +26,10 @@ godot --path prototipo
 | `ESPAÇO` (segurar/soltar) | largada — solte com o ponteiro na faixa verde |
 | `ESPAÇO` (apertar) | trocar de marcha — acerte a faixa verde do giro |
 | `SHIFT` (segurar) | nitro — acelera e esquenta o motor |
-| `R` | correr de novo · `M` menu · `ESC` sair |
+| `1` `2` `3` | escolher a peça na tela de recompensa |
+| `1` `2` | na garagem, trocar com a reserva |
+| `ESPAÇO` (na garagem) | ir para a próxima corrida |
+| `R` | continuar · `M` menu · `ESC` sair |
 
 ## O que observar
 
@@ -106,13 +109,17 @@ Os mais sensíveis:
 godot --headless --path prototipo --script res://sim_check.gd
 ```
 
-Valida quatro coisas e sai com código de erro se alguma quebrar:
+Cada checagem defende uma promessa do GDD, e sai com código de erro se alguma quebrar:
 
 1. a corrida dura entre 27s e 33s nos três perfis;
 2. o torque abre vantagem visível cedo **e** a alta rotação ultrapassa entre 55% e 95%
    da pista — se a liderança não trocar de mão, o sistema de bandas não existe de fato;
 3. o nitro conservador rende ganho mensurável — se não render, a fase 3 não tem decisão;
-4. a cena roda uma corrida inteira até a tela de resultado sem quebrar.
+4. a cena roda uma corrida inteira sem quebrar, a vitória sai do tempo (nunca da posição)
+   e a câmera recua o bastante para o rival não sumir por trás dela;
+5. ganância cobra e paga: simula sequências inteiras por estilo de jogo;
+6. duas builds opostas sobre o **mesmo** motor base correm diferente — senão peça é enfeite;
+7. a reserva respeita o teto e trocar duas vezes volta ao original, sem perder peça.
 
 Corrida real end-to-end, sem interação:
 
@@ -154,11 +161,22 @@ raridade. A marca é a identidade — Torque, Alta Rotação, Química, Confiabi
 que faz reconhecer uma build de relance. A raridade escala os números **inclusive os
 negativos**: uma peça Épica tem identidade mais forte, não apenas melhor.
 
-Ao vencer, você escolhe **1 entre 3**. A nova ocupa o slot e a antiga vai embora — sem
-inventário ainda.
+Ao vencer, você escolhe **1 entre 3**. A nova ocupa o slot e a antiga vai para a
+**reserva** — dois espaços, e com a reserva cheia ela vira sucata. O teto é o que faz a
+escolha custar: com espaço infinito você nunca abre mão de nada.
+
+## Garagem
+
+Entre corridas você passa pela garagem ([`hud.gd`](hud.gd), `_draw_garagem`). Ela não é
+uma lista de peças: o que precisa ser lido ali é a **forma do carro** — três barras de
+banda em que um motor de torque desenha uma escada descendo e um de alta rotação a mesma
+escada subindo. A lista de slots é o detalhe; a forma é a leitura.
+
+`1`/`2` trocam com a reserva. Como toda peça carrega o slot a que pertence, a troca nunca
+é ambígua e não precisa escolher alvo.
 
 ## Fora do escopo (de propósito)
 
-Turbo e pneu (dependem de pisos), pisos, câmbio automático, mapa, loja, inventário,
-bônus de conjunto, itens passivos, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
+Turbo e pneu (dependem de pisos), pisos, câmbio automático, mapa, loja, bônus de
+conjunto, itens passivos, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
 construir depois que as três perguntas do §8.3 tiverem resposta jogando.

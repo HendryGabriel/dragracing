@@ -351,8 +351,14 @@ transmissão** persistindo numa sequência — e **§3 parcial**: peças equipá
 (motor, transmissão, câmbio, escape, nitro), com marca e raridade, escolhidas 1 entre 3 a
 cada vitória. O rival também corre com peças, e ganha mais a cada corrida.
 
+Também implementado o **inventário** (§3.6): dois espaços de reserva, troca livre na
+garagem, e peça antiga vira sucata quando a reserva está cheia. A **garagem** é a tela onde
+a build fica legível — as três bandas como barras, que é a forma do carro, não a lista de
+peças.
+
 Falta de §4: turbo e pneu (dependem de pisos) e o conserto (depende de economia).
-Falta de §3: bônus de conjunto, inventário e itens passivos.
+Falta de §3: bônus de conjunto, itens passivos, e a expansão do inventário de 2 para 6
+espaços (depende dos desafios de meta-progressão).
 
 O caminho peça → número → forma da corrida está medido: sobre o **mesmo** motor base, peças
 de torque abrem +54m aos 5s e peças de alta rotação rendem +37 km/h no topo. É essa

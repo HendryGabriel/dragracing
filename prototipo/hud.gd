@@ -121,6 +121,8 @@ func _draw() -> void:
 		1:  # STAGING
 			_draw_tree(s)
 			_draw_flash(s)
+		5:  # GARAGEM
+			_draw_garagem(s)
 		_:
 			_draw_card(s)
 
@@ -329,6 +331,89 @@ func _draw_flash(s: float) -> void:
 	elif f.contains("AFOGOU") or f.contains("PATINOU"):
 		col = AMBER
 	_text(Vector2(size.x * 0.5, size.y * 0.5 - 124.0 * s), f, int(44 * s), Color(col, a))
+
+
+## A garagem. Nao e uma lista de pecas: o que precisa ser lido aqui e a FORMA do
+## carro -- tres barras de banda em que um motor de torque desenha uma escada
+## descendo e um de alta rotacao a mesma escada subindo. A lista e o detalhe.
+func _draw_garagem(s: float) -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.86))
+	var w := 960.0 * s
+	var h := 452.0 * s
+	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5, w, h)
+	_panel(r, 22.0 * s, SURFACE, EDGE)
+
+	_text(Vector2(size.x * 0.5, r.position.y + 44.0 * s), "GARAGEM", int(32 * s), TEXT)
+
+	# ---- coluna esquerda: os cinco slots ----
+	var lx := r.position.x + 46.0 * s
+	var y := r.position.y + 96.0 * s
+	_micro(Vector2(lx + 44.0 * s, y), "EQUIPADO", DIM, int(11 * s))
+	y += 30.0 * s
+	for linha in st.get("equipadas", []):
+		var slot: String = linha[0]
+		var texto: String = linha[1]
+		var efeito: String = linha[2]
+		var vazio := texto == "-"
+		_text(Vector2(lx, y), slot, int(17 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		_text(Vector2(lx + 126.0 * s, y), "vazio" if vazio else texto, int(19 * s),
+			DIM if vazio else TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+		if not vazio:
+			_text(Vector2(lx + 126.0 * s, y + 21.0 * s), efeito, int(15 * s), DIM,
+				HORIZONTAL_ALIGNMENT_LEFT)
+		y += 46.0 * s
+
+	# ---- coluna direita: a forma do carro ----
+	var rx := r.position.x + 600.0 * s
+	var by := r.position.y + 96.0 * s
+	_micro(Vector2(rx + 52.0 * s, by), "FORMA DO CARRO", DIM, int(11 * s))
+	by += 34.0 * s
+	var bandas: Array = st.get("bandas", [70.0, 70.0, 70.0])
+	var nomes := ["baixa", "media", "alta"]
+	var bw := 210.0 * s
+	for i in 3:
+		var v: float = clampf(float(bandas[i]) / 130.0, 0.0, 1.0)
+		_text(Vector2(rx, by), nomes[i], int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		var br := Rect2(rx + 58.0 * s, by - 7.0 * s, bw, 14.0 * s)
+		draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.40))
+		draw_colored_polygon(_cham(
+			Rect2(br.position, Vector2(maxf(bw * v, 6.0 * s), 14.0 * s)), 4.0 * s), TEXT)
+		_text(Vector2(rx + 58.0 * s + bw + 32.0 * s, by), "%.0f" % bandas[i], int(17 * s), TEXT)
+		by += 30.0 * s
+
+	by += 12.0 * s
+	var janela: Vector2 = st.get("janela", Vector2(0.9, 1.02))
+	var detalhes := [
+		"limite termico   %.0f%%" % (float(st.get("heat_limit", 0.8)) * 100.0),
+		"janela de troca   %.0f%%" % ((janela.y - janela.x) * 100.0),
+		"tanque de nitro   %.1fs" % float(st.get("nitro_cap", 6.0)),
+	]
+	for d in detalhes:
+		_text(Vector2(rx, by), d, int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		by += 22.0 * s
+
+	# ---- reserva ----
+	by += 14.0 * s
+	_micro(Vector2(rx + 40.0 * s, by), "RESERVA", DIM, int(11 * s))
+	by += 28.0 * s
+	var reserva: Array = st.get("reserva", [])
+	for i in 2:
+		var cheia: bool = i < reserva.size()
+		_lamp(Vector2(rx + 8.0 * s, by), 6.0 * s, TEXT if cheia else DIM, cheia)
+		var rot := "%d  %s" % [i + 1, reserva[i][0] if cheia else "vazia"]
+		_text(Vector2(rx + 26.0 * s, by), rot, int(17 * s),
+			TEXT if cheia else DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		by += 26.0 * s
+
+	# O aviso conta o que aconteceu com a peca substituida. Sem ele o jogador perde
+	# uma peca para a sucata sem nunca ficar sabendo.
+	var aviso: String = st.get("aviso", "")
+	if not aviso.is_empty():
+		var cor := RED if aviso.contains("sucata") else AMBER
+		_text(Vector2(size.x * 0.5, r.position.y + h - 62.0 * s), aviso, int(17 * s), cor)
+
+	_text(Vector2(size.x * 0.5, r.position.y + h - 32.0 * s),
+		"1 / 2 troca com a reserva   ·   ESPACO corre", int(18 * s), DIM)
 
 
 ## Cartao de menu / resultado. Hierarquia por escala e cor, sem enfeite.

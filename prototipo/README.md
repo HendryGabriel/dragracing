@@ -105,9 +105,16 @@ python ferramentas/detectar_rodas.py --conferir   # gera PNGs de conferência
 
 **A detecção acerta 20 dos 25.** O paralama interno não tem aparência consistente: em umas
 fotos é preto, em outras cinza claro, e em algumas se funde com a grade ou com a sombra.
-O detector tenta limiares crescentes até achar um par plausível, usa a **coroa do arco**
-como eixo (imune à sombra que vaza para o lado) e tira o **tamanho da distância entre
-eixos**, porque a mancha acerta o centro mas não o raio.
+O detector tenta limiares crescentes até achar um par plausível e usa a **coroa do arco**
+como eixo (imune à sombra que vaza para o lado).
+
+O tamanho **não** sai de proporção genérica: a roda vai do topo do arco até o ponto mais
+baixo da silhueta, os dois medidos na própria foto. Derivar de distância entre eixos dava
+roda pequena flutuando dentro da caixa, sem encostar no chão.
+
+A arte é **escura e de baixo contraste** de propósito. A carroceria é fotográfica; aro
+prateado com raio vetorial vira adesivo colado por cima, enquanto roda escura some na
+sombra do arco em vez de competir com a lataria.
 
 > **Cinco carros ainda sem medida** — `dodge charger 1970`, `Initial D carro`,
 > `lancer evo x`, `mclaren senna`, `mustang dark horse`. Eles correm sem roda, sem quebrar

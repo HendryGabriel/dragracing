@@ -104,6 +104,9 @@ func _ready() -> void:
 	if "--autorace" in OS.get_cmdline_user_args():
 		auto = true
 		_shots = [1.5, 8.0, 20.0, 28.0]
+		# vitrine na Supra: e o carro em que o problema de roda apareceu
+		menu_idx = 2
+		_preview_menu()
 		await get_tree().process_frame
 		await _shot_named("menu")
 		_start_staging()

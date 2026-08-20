@@ -100,7 +100,7 @@ def anchors_da_imagem(caminho):
         cands = _candidatos(corpo, lum, limiar, cy0, cy1, alt_carro, area_carro)
         par = _melhor_par(cands, larg_carro)
         if par is not None:
-            return _montar(par, cands, larg_o, alt_o)
+            return _montar(par, cands, larg_o, alt_o, float(cy1 + 1) * REDUCAO)
     return {"rodas": [], "cands": [], "larg": larg_o, "alt": alt_o,
             "reducao": REDUCAO}
 
@@ -149,26 +149,24 @@ def _melhor_par(cands, larg_carro):
     return sorted([melhor[1], melhor[2]], key=lambda b: b["x0"])
 
 
-## A mancha da caixa de roda acerta o CENTRO mas nao o tamanho: ela vaza para
-## sombra, saia e trim, entao o raio medido varia muito entre fotos do mesmo tipo
-## de carro. O tamanho sai da geometria -- a distancia entre eixos e estavel e
-## proporcional a roda em qualquer carro.
-RAIO_POR_ENTRE_EIXOS = 0.198
-ACHATAMENTO = 0.80   # a roda em 3/4 aparece mais estreita que alta
+## A roda vai do TOPO DO ARCO ate o CHAO, e os dois extremos estao medidos na
+## propria foto: a coroa do arco vem da mancha, o chao e o ponto mais baixo da
+## silhueta. Derivar o tamanho de proporcao generica (distancia entre eixos) dava
+## roda pequena demais, flutuando dentro da caixa sem encostar no chao.
+FOLGA_ARCO = 0.10    # o pneu nao encosta na lataria: sobra um dedo de folga
+ACHATAMENTO = 0.70   # a roda em 3/4 aparece bem mais estreita que alta
 
 
-def _montar(par, cands, larg_o, alt_o):
-    centros = []
-    for b in par:
-        centros.append((b["eixo_x"] * REDUCAO, float(b["y0"]) * REDUCAO))
-    entre_eixos = abs(centros[1][0] - centros[0][0])
-    ry = entre_eixos * RAIO_POR_ENTRE_EIXOS
-    rx = ry * ACHATAMENTO
-
+def _montar(par, cands, larg_o, alt_o, chao_y):
     rodas = []
-    for cx, topo in centros:
-        # o topo detectado e o teto do arco; o eixo fica um raio abaixo dele
-        cy = topo + ry
+    for b in par:
+        cx = b["eixo_x"] * REDUCAO
+        topo = float(b["y0"]) * REDUCAO
+        # altura da abertura do arco, medida nesta foto
+        vao = max(chao_y - topo, 8.0)
+        ry = vao * 0.5 * (1.0 - FOLGA_ARCO)
+        rx = ry * ACHATAMENTO
+        cy = chao_y - ry
         rodas.append({
             "cx": round(cx / larg_o, 5), "cy": round(cy / alt_o, 5),
             "rx": round(rx / larg_o, 5), "ry": round(ry / alt_o, 5),

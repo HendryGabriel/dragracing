@@ -26,20 +26,19 @@ def main():
     def circulo(raio, cor):
         d.ellipse([c - raio, c - raio, c + raio, c + raio], fill=cor)
 
-    # pneu: preto fosco com um aro externo mais claro, para o contorno existir
-    # contra a lataria branca e contra a pista escura
-    circulo(n * 0.500, (16, 16, 18, 255))
-    circulo(n * 0.478, (30, 30, 33, 255))
-    # ombro do pneu
-    circulo(n * 0.404, (22, 22, 25, 255))
-    # parede lateral
-    circulo(n * 0.392, (34, 34, 37, 255))
+    # A carroceria e FOTOGRAFICA. Aro prateado e brilhante com raio vetorial vira
+    # adesivo colado por cima. Roda escura e de baixo contraste convive com foto:
+    # some na sombra do arco em vez de competir com a lataria.
+    circulo(n * 0.500, (10, 10, 11, 255))
+    circulo(n * 0.474, (21, 21, 23, 255))
+    # ombro e parede lateral do pneu
+    circulo(n * 0.408, (15, 15, 17, 255))
+    circulo(n * 0.396, (26, 26, 28, 255))
 
-    # aro
-    circulo(n * 0.320, (150, 152, 158, 255))
-    circulo(n * 0.300, (188, 191, 198, 255))
-    # miolo escuro entre os raios
-    circulo(n * 0.268, (52, 53, 57, 255))
+    # aro escuro, so um fio de brilho na borda
+    circulo(n * 0.318, (74, 75, 79, 255))
+    circulo(n * 0.302, (52, 53, 56, 255))
+    circulo(n * 0.276, (30, 30, 33, 255))
 
     # raios
     import math
@@ -57,11 +56,11 @@ def main():
             (c + dx * r1 - px * larg, c + dy * r1 - py * larg),
             (c + dx * r0 - px * larg * 0.55, c + dy * r0 - py * larg * 0.55),
         ]
-        d.polygon(pts, fill=(196, 199, 205, 255))
+        d.polygon(pts, fill=(88, 89, 94, 255))
 
     # cubo
-    circulo(n * 0.082, (168, 170, 176, 255))
-    circulo(n * 0.052, (96, 98, 104, 255))
+    circulo(n * 0.086, (66, 67, 71, 255))
+    circulo(n * 0.050, (38, 39, 42, 255))
 
     img = img.resize((LADO, LADO), Image.LANCZOS)
     img.save(SAIDA)

@@ -22,7 +22,8 @@ godot --path prototipo
 
 | Tecla | Ação |
 |---|---|
-| `1` `2` `3` | escolher o motor no menu |
+| setas · `1` `2` `3` | escolher o carro no menu |
+| `ESPAÇO` (no menu) | confirmar e começar |
 | `ESPAÇO` (segurar/soltar) | largada — solte com o ponteiro na faixa verde |
 | `ESPAÇO` (apertar) | trocar de marcha — acerte a faixa verde do giro |
 | `SHIFT` (segurar) | nitro — acelera e esquenta o motor |
@@ -37,6 +38,17 @@ godot --path prototipo
 - **Alta Rotação** apanha na saída e ultrapassa por volta dos 79% da pista.
 - Passar de **80% de calor** entra na faixa vermelha: o dado começa a rolar. Fundiu, é DNF.
 - Nitro conservador (parar antes dos 80%) rende ~0,4s **sem risco**. Ir além é aposta.
+
+## Menu
+
+O menu é uma **vitrine**, não uma tabela: você está escolhendo o carro que vai levar uma
+sequência inteira, então o carro aparece na cena de verdade — mesma câmera do jogo, só com
+lente mais fechada (`MENU_FOV`, 46° contra os 78° da corrida, que são grande-angular e
+péssimos para retratar um carro parado). Trocar de opção troca o carro na tela.
+
+As três bandas usam **as mesmas barras da garagem**, de propósito: uma linguagem só,
+aprendida uma vez. Um motor de torque desenha a escada descendo (92/78/42) antes de você
+ter corrido uma única vez.
 
 ## Carros
 

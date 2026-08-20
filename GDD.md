@@ -85,6 +85,8 @@ Isso amarra duas coisas que não podem ser mexidas isoladamente: **ângulo da fo
 
 **Indicador de gap sempre visível no HUD.** Com a câmera presa ao jogador, ele é a única fonte confiável de posição quando o rival está fora do quadro — o jogador nunca pode ter dúvida sobre quem está ganhando — a decisão de queimar nitro nos últimos 5 segundos depende exatamente dessa informação.
 
+**A escolha de carro é uma vitrine, não uma lista.** O jogador está decidindo o carro de uma run inteira, então o carro fica na cena — mesma câmera, lente mais fechada. E as bandas aparecem com **as mesmas barras da garagem**: a forma do carro é uma linguagem só, aprendida uma vez e usada em todo lugar onde uma build precisa ser lida.
+
 **Medidor de RPM / janela de troca:** HUD fixo e grande. Não pode ser instrumento no painel — a câmera é externa e móvel, painel não seria legível.
 
 **A árvore de largada é a linguagem visual do HUD.** Largada, janela de troca e limite térmico usam a **mesma lâmpada**, na mesma sequência âmbar → verde → vermelho da pista real. Na largada ela é a árvore literal; na corrida vira a régua de giro, e quando o giro entra na janela a régua inteira acende verde — o sinal de trocar precisa ser legível pela visão periférica, porque o jogador está olhando o rival, não o mostrador. Uma linguagem só, aprendida uma vez, usada nos três momentos em que o jogo cobra timing.

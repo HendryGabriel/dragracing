@@ -24,6 +24,12 @@ const CAM_Y := 1.15          # altura, quase na linha dos farois
 const CAM_DIST := 15.0
 const CAM_DIST_MAX := 46.0      # ate onde a camera recua
 const CAM_RIVAL_MARGIN := 9.0   # m que o rival mantem a frente da camera
+const MENU_CAM_DIST := 9.0      # vitrine: camera perto do carro
+## Lente mais fechada so na vitrine. Os 78 graus da corrida sao grande-angular --
+## bons para sensacao de velocidade, pessimos para retratar um carro parado.
+const MENU_FOV := 46.0
+const RACE_FOV := 78.0
+const MENU_DESLOC_X := 1.9      # mira ao lado, para o carro cair a direita
 #
 # A camera e RIGIDA: sempre o mesmo deslocamento em relacao ao carro do JOGADOR,
 # sem trocar de alvo e sem nunca girar. Nao e preferencia, e limite da arte -- a
@@ -74,6 +80,7 @@ var card_cols: Array = [0.0, 34.0, 190.0, 344.0]
 var card_head: Array = ["", "motor", "baixa / media / alta", "carro"]
 var card_cols_dim: Array = [2, 3]
 var garagem_aviso := ""
+var menu_idx := 0
 
 
 # ---------------------------------------------------------------- setup
@@ -161,7 +168,7 @@ func _build_world() -> void:
 	add_child(rival_sprite)
 
 	cam = Camera3D.new()
-	cam.fov = 78.0
+	cam.fov = RACE_FOV
 	cam.far = 900.0
 	add_child(cam)
 
@@ -263,24 +270,28 @@ func _to_garagem(aviso: String) -> void:
 		_shot_named("garagem")
 
 
+## O menu e uma VITRINE, nao uma tabela: o jogador escolhe o carro que vai levar
+## uma sequencia inteira, entao o carro precisa estar na tela. As bandas usam as
+## mesmas barras da garagem -- uma linguagem so, aprendida uma vez.
 func _to_menu() -> void:
 	state = State.MENU
 	garagem = Garagem.new()
 	build = Build.new()
-	_card_padrao()
-	card_title = "ARRANCADA"
-	card_color = Hud.TEXT
-	card_table = []
-	var i := 1
-	for name in Tuning.PROFILES:
-		var b: Array = Tuning.PROFILES[name]
-		card_table.append(["%d" % i, name, "%.0f / %.0f / %.0f" % [b[0], b[1], b[2]],
-			Cars.BY_PROFILE.get(name, "?")])
-		i += 1
-	card_lines = [
-		"~a banda decide qual fase da corrida voce ganha",
-		"~ESPACO larga e troca   ·   SHIFT nitro   ·   ESC sai",
-	]
+	player = Car.new()
+	rival = Car.new()
+	_preview_menu()
+
+
+func _preview_menu() -> void:
+	var nomes := Tuning.PROFILES.keys()
+	menu_idx = wrapi(menu_idx, 0, nomes.size())
+	player_profile = nomes[menu_idx]
+	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
+	car_sprite.texture = Cars.texture(player_car)
+	car_sprite.flip_h = Cars.flipped(player_car)
+	# Sem tingir: na vitrine e o carro, nao o "seu carro" contra o do rival.
+	car_sprite.modulate = Color(1, 1, 1)
+	rival_sprite.visible = false
 
 
 func _start_staging() -> void:
@@ -310,6 +321,8 @@ func _start_staging() -> void:
 	rival.set_launch(randf_range(0.58, 0.84))
 	ai_shift_point = Tuning.AI_SHIFT_POINT
 
+	car_sprite.modulate = Color(0.62, 0.80, 1.0)
+	rival_sprite.visible = true
 	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
 	rival_car = Cars.random_name(rival.rng)
 	if auto:
@@ -414,10 +427,17 @@ func _input(event: InputEvent) -> void:
 	match state:
 		State.MENU:
 			if k.pressed:
-				var names := Tuning.PROFILES.keys()
 				var idx := [KEY_1, KEY_2, KEY_3].find(k.keycode)
-				if idx >= 0 and idx < names.size():
-					player_profile = names[idx]
+				if idx >= 0 and idx < Tuning.PROFILES.size():
+					menu_idx = idx
+					_preview_menu()
+				elif k.keycode == KEY_DOWN or k.keycode == KEY_RIGHT:
+					menu_idx += 1
+					_preview_menu()
+				elif k.keycode == KEY_UP or k.keycode == KEY_LEFT:
+					menu_idx -= 1
+					_preview_menu()
+				elif k.keycode == KEY_SPACE or k.keycode == KEY_ENTER:
 					_start_staging()
 		State.STAGING:
 			if k.keycode == KEY_SPACE:
@@ -565,6 +585,18 @@ static func cam_distance_for(ahead: float) -> float:
 func _update_camera(delta: float) -> void:
 	if not cam.is_inside_tree():
 		return
+	# Na vitrine a camera chega perto e mira ao lado do carro, para ele cair a
+	# direita do quadro e sobrar a esquerda para o painel. So distancia e alvo
+	# mudam -- a direcao continua a mesma, entao o sprite continua sem girar.
+	if state == State.MENU:
+		cam.fov = MENU_FOV
+		cam_dist = lerpf(cam_dist, MENU_CAM_DIST, 1.0 - exp(-6.0 * delta))
+		var alvo := Vector3(-LANE - MENU_DESLOC_X, CAR_Y * 0.95, 0.0)
+		cam.global_position = alvo + cam_dir() * cam_dist
+		cam.look_at(alvo)
+		return
+
+	cam.fov = RACE_FOV
 	var alvo_dist := cam_distance_for(rival.pos - player.pos)
 	cam_dist = lerpf(cam_dist, alvo_dist, 1.0 - exp(-3.0 * delta))
 
@@ -614,6 +646,12 @@ func _feed_hud(delta: float) -> void:
 				"launch_hi": Tuning.LAUNCH_GREEN.y,
 				"matchup": matchup,
 			})
+		State.MENU:
+			var opcoes: Array = []
+			for nome in Tuning.PROFILES:
+				opcoes.append([nome, Cars.BY_PROFILE.get(nome, "?"),
+					Tuning.PROFILES[nome]])
+			d.merge({"opcoes": opcoes, "sel": menu_idx})
 		State.GARAGEM:
 			var pv: Dictionary = build.previa(Tuning.PROFILES[player_profile])
 			var eq: Array = []

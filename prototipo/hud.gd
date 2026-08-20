@@ -123,6 +123,8 @@ func _draw() -> void:
 			_draw_flash(s)
 		5:  # GARAGEM
 			_draw_garagem(s)
+		0:  # MENU
+			_draw_menu(s)
 		_:
 			_draw_card(s)
 
@@ -333,6 +335,64 @@ func _draw_flash(s: float) -> void:
 	_text(Vector2(size.x * 0.5, size.y * 0.5 - 124.0 * s), f, int(44 * s), Color(col, a))
 
 
+## As tres bandas como barras. E a forma do carro: torque desenha uma escada
+## descendo, alta rotacao a mesma escada subindo. Usada no menu E na garagem, de
+## proposito -- uma linguagem so, aprendida uma vez.
+func _barras_banda(x: float, y: float, w: float, bandas: Array, s: float,
+		altura := 14.0, passo := 30.0, corpo := 17) -> float:
+	var nomes := ["baixa", "media", "alta"]
+	for i in 3:
+		var v: float = clampf(float(bandas[i]) / 130.0, 0.0, 1.0)
+		_text(Vector2(x, y), nomes[i], int(corpo * 0.88), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		var br := Rect2(x + 58.0 * s, y - altura * 0.5 * s, w, altura * s)
+		draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.40))
+		draw_colored_polygon(_cham(
+			Rect2(br.position, Vector2(maxf(w * v, 6.0 * s), altura * s)), 4.0 * s), TEXT)
+		_text(Vector2(x + 58.0 * s + w + 32.0 * s, y), "%.0f" % bandas[i], int(corpo), TEXT)
+		y += passo * s
+	return y
+
+
+## Vitrine de escolha de carro. O carro esta na CENA, atras deste painel -- e por
+## isso que aqui nao ha escurecimento de tela cheia: escurecer tudo esconderia
+## justamente o que o jogador esta escolhendo.
+func _draw_menu(s: float) -> void:
+	var w := 470.0 * s
+	var h := 330.0 * s
+	var r := Rect2(64.0 * s, size.y * 0.5 - h * 0.5 + 24.0 * s, w, h)
+	_panel(r, 20.0 * s, Color(INK, 1.0), EDGE)  # opaco: poste atras vazava
+
+	_text(Vector2(r.position.x + 30.0 * s, r.position.y - 42.0 * s), "ARRANCADA",
+		int(44 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+
+	var sel: int = int(st.get("sel", 0))
+	var opcoes: Array = st.get("opcoes", [])
+	var y := r.position.y + 46.0 * s
+	for i in opcoes.size():
+		var nome: String = opcoes[i][0]
+		var carro: String = opcoes[i][1]
+		var bandas: Array = opcoes[i][2]
+		var ativo := i == sel
+		var lx := r.position.x + 32.0 * s
+
+		_lamp(Vector2(lx, y), 7.0 * s, AMBER if ativo else DIM, ativo)
+		_text(Vector2(lx + 22.0 * s, y), nome, int(24 * s if ativo else 21 * s),
+			TEXT if ativo else DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		_text(Vector2(lx + 22.0 * s, y + 22.0 * s), carro, int(15 * s), DIM,
+			HORIZONTAL_ALIGNMENT_LEFT)
+
+		if ativo:
+			_barras_banda(lx + 22.0 * s, y + 52.0 * s, 150.0 * s, bandas, s,
+				11.0, 23.0, 14)
+		y += (128.0 if ativo else 66.0) * s
+
+	# Mesma borda esquerda do resto do painel: centralizar so o rodape criaria dois
+	# eixos numa coluna que ja e alinhada.
+	_text(Vector2(r.position.x + 32.0 * s, r.position.y + h - 26.0 * s),
+		"setas escolhem   ·   ESPACO confirma", int(17 * s), DIM,
+		HORIZONTAL_ALIGNMENT_LEFT)
+
+
 ## A garagem. Nao e uma lista de pecas: o que precisa ser lido aqui e a FORMA do
 ## carro -- tres barras de banda em que um motor de torque desenha uma escada
 ## descendo e um de alta rotacao a mesma escada subindo. A lista e o detalhe.
@@ -368,18 +428,7 @@ func _draw_garagem(s: float) -> void:
 	var by := r.position.y + 96.0 * s
 	_micro(Vector2(rx + 52.0 * s, by), "FORMA DO CARRO", DIM, int(11 * s))
 	by += 34.0 * s
-	var bandas: Array = st.get("bandas", [70.0, 70.0, 70.0])
-	var nomes := ["baixa", "media", "alta"]
-	var bw := 210.0 * s
-	for i in 3:
-		var v: float = clampf(float(bandas[i]) / 130.0, 0.0, 1.0)
-		_text(Vector2(rx, by), nomes[i], int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		var br := Rect2(rx + 58.0 * s, by - 7.0 * s, bw, 14.0 * s)
-		draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.40))
-		draw_colored_polygon(_cham(
-			Rect2(br.position, Vector2(maxf(bw * v, 6.0 * s), 14.0 * s)), 4.0 * s), TEXT)
-		_text(Vector2(rx + 58.0 * s + bw + 32.0 * s, by), "%.0f" % bandas[i], int(17 * s), TEXT)
-		by += 30.0 * s
+	by = _barras_banda(rx, by, 210.0 * s, st.get("bandas", [70.0, 70.0, 70.0]), s)
 
 	by += 12.0 * s
 	var janela: Vector2 = st.get("janela", Vector2(0.9, 1.02))

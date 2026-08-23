@@ -10,6 +10,14 @@ extends SceneTree
 
 const DT := 1.0 / 120.0
 
+## As checagens de arquetipo precisam de tres carros REAIS de potencia parecida
+## (241 a 290 cv), senao a comparacao mede cavalo em vez de formato de curva.
+const REFS := {
+	"Torque": "mustang 1969",
+	"Equilibrado": "golf gti",
+	"Alta Rotacao": "supra mk4",
+}
+
 
 func _make(bands: Array, seed_v: int) -> Car:
 	var c := Car.new()
@@ -59,7 +67,8 @@ func _duel(bands_a: Array, bands_b: Array) -> Dictionary:
 		if cross < 0.0 and max_lead > 0.0 and lead <= 0.0:
 			cross = a.pos
 	return {"max_lead": max_lead, "max_lead_at": max_lead_at, "cross": cross,
-		"cross_pct": cross / Tuning.RACE_DISTANCE * 100.0}
+		"cross_pct": cross / Tuning.RACE_DISTANCE * 100.0,
+		"lead_final": a.pos - b.pos}
 
 
 ## Simula uma sequencia inteira ate o motor fundir, num estilo de jogo.
@@ -69,7 +78,7 @@ func _carreira(estilo: String, seed_v: int, ref: float) -> Dictionary:
 	var g := Garagem.new()
 	while not g.acabou and g.corridas < 60:
 		var c := Car.new()
-		c.bands = Tuning.PROFILES["Equilibrado"]
+		c.bands = Cars.bandas(REFS["Equilibrado"])
 		c.rng.seed = seed_v * 1000 + g.corridas
 		c.set_launch(0.70)
 		g.aplicar(c)
@@ -108,8 +117,8 @@ func _initialize() -> void:
 	var clean := {}
 
 	print("=== corrida limpa, sem nitro (jogo perfeito) ===")
-	for name in Tuning.PROFILES:
-		var r := _run(Tuning.PROFILES[name], 0.96, 2.0, 0.0, 1)
+	for name in REFS:
+		var r := _run(Cars.bandas(REFS[name]), 0.96, 2.0, 0.0, 1)
 		clean[name] = r
 		var seq := PackedStringArray()
 		for g in range(2, Tuning.GEARS + 1):
@@ -118,16 +127,27 @@ func _initialize() -> void:
 			% [name, r.t, r.top * 3.6, r.pos5, " | ".join(seq)])
 
 	print("\n=== com nitro na fase 3 (segurando ate 0.95 de calor) ===")
-	for name in Tuning.PROFILES:
-		var r := _run(Tuning.PROFILES[name], 0.96, 0.60, 0.95, 1)
+	for name in REFS:
+		var r := _run(Cars.bandas(REFS[name]), 0.96, 0.60, 0.95, 1)
 		var ganho: float = clean[name].t - r.t
 		print("%-14s tempo %5.2fs | ganho %+.2fs | fundiu: %s"
 			% [name, r.t, ganho, r.blown])
 
 	print("\n=== jogo ruim: troca sempre cedo (rpm 0.70), sem nitro ===")
-	for name in Tuning.PROFILES:
-		var r := _run(Tuning.PROFILES[name], 0.70, 2.0, 0.0, 1)
+	for name in REFS:
+		var r := _run(Cars.bandas(REFS[name]), 0.70, 2.0, 0.0, 1)
 		print("%-14s tempo %5.2fs | custo do erro %+.2fs" % [name, r.t, r.t - clean[name].t])
+
+	# Panorama do elenco: com potencia de fabrica a escada e larga de proposito, e
+	# so os carros do meio ficam perto dos 30s. Informativo, nao e checagem.
+	print("
+=== elenco, corrida limpa sem nitro ===")
+	for nome in Cars.elenco():
+		var rr := _run(Cars.bandas(nome), 0.96, 2.0, 0.0, 1)
+		var b: Array = Cars.bandas(nome)
+		print("%-20s %4d cv  tier %d  %5.2fs  top %4.0f km/h  %5.1f /%5.1f /%5.1f"
+			% [nome, Cars.cavalos(nome), Cars.tier(nome), rr.t, rr.top * 3.6,
+				b[0], b[1], b[2]])
 
 	# ---------- checagem 1: janela de 30s ----------
 	for name in clean:
@@ -136,25 +156,44 @@ func _initialize() -> void:
 			push_error("[1] %s fora da janela de 30s: %.2fs" % [name, t])
 			fails += 1
 
+	# ---------- checagem 2b: os quatro carateres tem que EMPATAR em potencia igual --
+	# o formato decide QUANDO voce ganha, nunca SE voce ganha. Se um carater for
+	# sistematicamente mais rapido, escolher carro vira escolher o carater certo.
+	print("
+=== carateres a 300 cv (o formato nao pode decidir a corrida) ===")
+	var tempos := {}
+	for carater in Cars.PESOS:
+		var rr := _run(Cars.curva(300, carater), 0.96, 2.0, 0.0, 1)
+		tempos[carater] = rr.t
+		print("%-13s %5.2fs  top %4.0f km/h" % [carater, rr.t, rr.top * 3.6])
+	var spread: float = tempos.values().max() - tempos.values().min()
+	print("desvio entre carateres: %.2fs" % spread)
+	if spread > 0.60:
+		push_error("[2b] Carater decide a corrida sozinho: %.2fs de desvio" % spread)
+		fails += 1
+
 	# ---------- checagem 2: torque lidera cedo, alta rotacao ultrapassa antes da linha ----------
 	# A promessa do sistema de bandas so existe se a lideranca troca de mao DENTRO da corrida.
-	var duelo := _duel(Tuning.PROFILES["Torque"], Tuning.PROFILES["Alta Rotacao"])
+	var duelo := _duel(Cars.curva(300, "torque"), Cars.curva(300, "turbo"))
 	print("\nduelo Torque x Alta Rotacao: vantagem maxima do torque %.0fm aos %.1fs | %s"
 		% [duelo.max_lead, duelo.max_lead_at,
 			"ultrapassagem em %.0fm (%.0f%% da pista)" % [duelo.cross, duelo.cross_pct]
 			if duelo.cross > 0.0 else "NUNCA ultrapassa"])
+	# O formato promete que o torque abre cedo e o turbo devolve no fim. Como os
+	# dois EMPATAM em potencia igual (checagem 2b), a ultrapassagem cai em cima da
+	# linha -- entao o que se mede nao e "onde cruzou", e QUANTO o turbo recuperou.
+	var recuperou: float = 1.0 - maxf(duelo.lead_final, 0.0) / maxf(duelo.max_lead, 1.0)
+	print("torque abre %.0fm aos %.1fs e o turbo recupera %.0f%% ate a linha"
+		% [duelo.max_lead, duelo.max_lead_at, recuperou * 100.0])
 	if duelo.max_lead < 15.0:
 		push_error("[2] Torque nao abre vantagem visivel cedo (%.0fm)" % duelo.max_lead)
 		fails += 1
-	if duelo.cross < 0.0:
-		push_error("[2] Alta Rotacao nunca ultrapassa: a banda alta nao paga")
-		fails += 1
-	elif duelo.cross_pct < 55.0 or duelo.cross_pct > 95.0:
-		push_error("[2] Ultrapassagem fora da janela 55-95%%: %.0f%%" % duelo.cross_pct)
+	if recuperou < 0.75:
+		push_error("[2] Turbo nao devolve no fim: recupera so %.0f%%" % (recuperou * 100.0))
 		fails += 1
 
 	# ---------- checagem 3: o nitro decide a fase 3 ----------
-	var seguro := _run(Tuning.PROFILES["Equilibrado"], 0.96, 0.60, 0.78, 1)  # abaixo do limite
+	var seguro := _run(Cars.bandas(REFS["Equilibrado"]), 0.96, 0.60, 0.78, 1)  # abaixo do limite
 	var base: float = clean["Equilibrado"].t
 	if base - seguro.t < 0.30:
 		push_error("[3] Nitro sem efeito util: ganho de apenas %.2fs" % (base - seguro.t))
@@ -197,7 +236,7 @@ func _initialize() -> void:
 	# ---------- checagem 6: peca muda a FORMA da corrida ----------
 	# Pilar 1 do GDD: "a build e sentida, nao lida". Duas builds sobre o MESMO
 	# motor base tem que correr diferente; se so mudam o tempo final, sao enfeite.
-	var bandas_base: Array = Tuning.PROFILES["Equilibrado"]
+	var bandas_base: Array = Cars.bandas(REFS["Equilibrado"])
 	var formas := {}
 	for marca in ["Torque", "Alta Rotacao"]:
 		var b := Build.new()
@@ -276,7 +315,8 @@ func _scene_smoke() -> int:
 		push_error("[4] A cena nao montou mundo/HUD")
 		scene.queue_free()
 		return 1
-	scene.player_profile = "Torque"
+	scene.menu_idx = 0
+	scene._preview_menu()
 	scene._start_staging()
 	scene.rev = 0.70
 	scene._start_race()
@@ -322,10 +362,15 @@ func _scene_smoke() -> int:
 		fails_local += 1
 
 	# Um nome errado em Cars.FLIP nao da erro: o carro so continua correndo de
-	# costas e ninguem percebe ate ver em movimento.
+	# costas e ninguem percebe ate ver em movimento. E nome fora do elenco vira
+	# carro sem foto, que quebra na hora de carregar a textura.
 	for nome in Cars.FLIP:
-		if not (nome in Cars.ALL):
-			push_error("[4] Cars.FLIP tem \"%s\", que nao existe em Cars.ALL" % nome)
+		if not Cars.ROSTER.has(nome):
+			push_error("[4] Cars.FLIP tem \"%s\", que nao esta no elenco" % nome)
+			fails_local += 1
+	for nome in Cars.ROSTER:
+		if not ResourceLoader.exists(Cars.DIR + nome + ".png"):
+			push_error("[4] elenco tem \"%s\" sem foto em cars/" % nome)
 			fails_local += 1
 
 	var ok: bool = scene.state == 3  # 3 = State.RESULT

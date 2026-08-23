@@ -50,6 +50,19 @@ As três bandas usam **as mesmas barras da garagem**, de propósito: uma linguag
 aprendida uma vez. Um motor de torque desenha a escada descendo (92/78/42) antes de você
 ter corrido uma única vez.
 
+## Elenco
+
+Os 25 carros são **todos jogáveis**, listados em `Cars.ROSTER` ([`cars.gd`](cars.gd)). Cada
+um entra com **potência de fábrica** e caráter de motor; a curva de 3 bandas e o tier são
+derivados daí. Antes só 3 eram jogáveis e o rival sorteava foto e curva separadamente, o
+que dava Kombi com curva de alta rotação.
+
+Os quatro caracteres — torque, equilibrado, alta, turbo — **empatam dentro de 0,12s na
+mesma potência**, e o `sim_check` falha se esse desvio passar de 0,6s. Sem isso um caráter
+seria sempre melhor e escolher carro viraria escolher o caráter certo.
+
+No duelo a 300 cv, o torque abre 119m aos 17s e o turbo recupera 97% até a linha.
+
 ## Carros
 
 As carrocerias ficam em [`cars/`](cars/) — 25 fotos em 3/4 frontal, brancas (tingidas

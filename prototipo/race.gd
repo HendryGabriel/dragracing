@@ -46,8 +46,6 @@ const CAR_Y := 1.15             # centro do sprite para as rodas tocarem o chao
 var state := State.MENU
 var player := Car.new()
 var rival := Car.new()
-var player_profile := "Equilibrado"
-var rival_profile := "Equilibrado"
 
 var rev := 0.0             # ponteiro da largada
 var revving := false
@@ -105,7 +103,7 @@ func _ready() -> void:
 		auto = true
 		_shots = [1.5, 8.0, 20.0, 28.0]
 		# vitrine na Supra: e o carro em que o problema de roda apareceu
-		menu_idx = 2
+		menu_idx = 11
 		_preview_menu()
 		await get_tree().process_frame
 		await _shot_named("menu")
@@ -341,10 +339,9 @@ func _to_menu() -> void:
 
 
 func _preview_menu() -> void:
-	var nomes := Tuning.PROFILES.keys()
+	var nomes := Cars.elenco()
 	menu_idx = wrapi(menu_idx, 0, nomes.size())
-	player_profile = nomes[menu_idx]
-	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
+	player_car = nomes[menu_idx]
 	car_sprite.texture = Cars.texture(player_car)
 	car_sprite.flip_h = Cars.flipped(player_car)
 	# Sem tingir: na vitrine e o carro, nao o "seu carro" contra o do rival.
@@ -363,11 +360,9 @@ func _start_staging() -> void:
 	player = Car.new()
 	player.label = "Voce"
 	player.rng.randomize()
-	build.aplicar(player, Tuning.PROFILES[player_profile])
+	build.aplicar(player, Cars.bandas(player_car))
 	garagem.aplicar(player)
 
-	var names := Tuning.PROFILES.keys()
-	rival_profile = names[randi() % names.size()]
 	rival = Car.new()
 	rival.label = "Rival"
 	rival.rng.randomize()
@@ -376,14 +371,13 @@ func _start_staging() -> void:
 	var rb := Build.new()
 	for i in mini(Peca.SLOTS.size(), 1 + garagem.corridas / 2):
 		rb.equipar(Peca.sortear(rival.rng))
-	rb.aplicar(rival, Tuning.PROFILES[rival_profile])
+	rb.aplicar(rival, Cars.bandas(rival_car))
 	rival.set_launch(randf_range(0.58, 0.84))
 	ai_shift_point = Tuning.AI_SHIFT_POINT
 
 	car_sprite.modulate = Color(0.62, 0.80, 1.0)
 	rival_sprite.visible = true
-	player_car = Cars.BY_PROFILE.get(player_profile, Cars.ALL[0])
-	rival_car = Cars.random_name(rival.rng)
+	rival_car = Cars.sortear(rival.rng, garagem.corridas)
 	if auto:
 		# rival fixo numa foto espelhada: assim o print de checagem sempre exercita
 		# o caminho do flip, em vez de depender do sorteio
@@ -397,8 +391,8 @@ func _start_staging() -> void:
 	_por_rodas(car_sprite, rodas_player, player_car)
 	_por_rodas(rival_sprite, rodas_rival, rival_car)
 
-	matchup = "%s (%s)   x   %s (%s)" % [player_profile, player_car,
-		rival_profile, rival_car]
+	matchup = "%s  %d cv   x   %s  %d cv" % [player_car, Cars.cavalos(player_car),
+		rival_car, Cars.cavalos(rival_car)]
 
 
 func _start_race() -> void:
@@ -446,9 +440,9 @@ func _to_result() -> void:
 
 	card_table = []
 	card_lines = [
-		"%s   %s" % [player_car,
+		"%s  %d cv   %s" % [player_car, Cars.cavalos(player_car),
 			("%.2fs" % player.finished_at) if player.finished_at > 0 else "nao terminou"],
-		"~%s   %s" % [rival_car,
+		"~%s  %d cv   %s" % [rival_car, Cars.cavalos(rival_car),
 			("%.2fs" % rival.finished_at) if rival.finished_at > 0 else "nao terminou"],
 		"motor %s %.0f%%   ·   cambio %s %.0f%%" % [
 			Garagem.faixa(garagem.motor), garagem.motor * 100,
@@ -488,11 +482,7 @@ func _input(event: InputEvent) -> void:
 	match state:
 		State.MENU:
 			if k.pressed:
-				var idx := [KEY_1, KEY_2, KEY_3].find(k.keycode)
-				if idx >= 0 and idx < Tuning.PROFILES.size():
-					menu_idx = idx
-					_preview_menu()
-				elif k.keycode == KEY_DOWN or k.keycode == KEY_RIGHT:
+				if k.keycode == KEY_DOWN or k.keycode == KEY_RIGHT:
 					menu_idx += 1
 					_preview_menu()
 				elif k.keycode == KEY_UP or k.keycode == KEY_LEFT:
@@ -708,13 +698,14 @@ func _feed_hud(delta: float) -> void:
 				"matchup": matchup,
 			})
 		State.MENU:
+			var lista := Cars.elenco()
 			var opcoes: Array = []
-			for nome in Tuning.PROFILES:
-				opcoes.append([nome, Cars.BY_PROFILE.get(nome, "?"),
-					Tuning.PROFILES[nome]])
+			for nome in lista:
+				opcoes.append([nome, "%d cv   ·   tier %d"
+					% [Cars.cavalos(nome), Cars.tier(nome)], Cars.bandas(nome)])
 			d.merge({"opcoes": opcoes, "sel": menu_idx})
 		State.GARAGEM:
-			var pv: Dictionary = build.previa(Tuning.PROFILES[player_profile])
+			var pv: Dictionary = build.previa(Cars.bandas(player_car))
 			var eq: Array = []
 			for slot in Peca.SLOTS:
 				if build.pecas.has(slot):

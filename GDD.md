@@ -157,6 +157,19 @@ Peça não é só número — ela **pertence a uma marca**, e a marca é o arqu�
 ### 3.5 Carros
 
 **Carroceria = o carro.** É a escolha de pré-run e define os stats base (curva de bandas inicial).
+
+**A potência é a de fábrica, sem modificação.** Cada carro entra no elenco com dois dados honestos — os **cavalos originais** da versão retratada e o **caráter do motor** — e a curva de 3 bandas é derivada deles. Ninguém inventa três números por carro, e a escada de força sai da realidade em vez de sair do gosto de quem balanceou.
+
+| Caráter | Quem é | O que faz na curva |
+|---|---|---|
+| **torque** | V8 grande, motor de baixa rotação | Atropela na largada, morre no topo |
+| **equilibrado** | Aspirado moderno, turbo responsivo | Curva plana |
+| **alta** | Aspirado de alto giro | Apanha na saída, voa no fim |
+| **turbo** | Turbo grande, com atraso | Pior largada de todas, maior topo de todos |
+
+**Os quatro caracteres empatam em potência igual.** Isso é regra, não coincidência: concentrar potência na banda alta rende menos que espalhar, porque o arrasto come o ganho lá em cima. Sem compensar, escolher turbo seria sempre pior e o caráter deixaria de ser escolha. Com a compensação, o formato decide **quando** você ganha, nunca **se** — e o duelo vira foto na chegada.
+
+**Tier sai da potência**, não de opinião: abaixo de 150 cv é tier 1, até 400 é tier 2, acima disso tier 3. O destravamento por vitórias (§7) depende de save, que ainda não existe — por enquanto o elenco inteiro está disponível.
 **Aerofólio = puramente visual.**
 
 **Formato da arte:** foto em 3/4 frontal **e sempre do mesmo lado do carro** — misturar fotos tiradas do lado oposto faz uns carros correrem de costas, e o jogo passa a precisar espelhar caso a caso (o que inverte emblemas). Fundo transparente, carro **branco** (a pintura entra por tingimento, então uma imagem serve para todas as cores) e **sem rodas** — as caixas de roda ficam vazias de propósito. Roda é um slot de equipamento (§3.2), e sua arte é composta por cima da carroceria. Isso é o que permite trocar de pneu e o jogador **ver** a troca.

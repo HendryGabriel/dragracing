@@ -356,39 +356,50 @@ func _barras_banda(x: float, y: float, w: float, bandas: Array, s: float,
 ## Vitrine de escolha de carro. O carro esta na CENA, atras deste painel -- e por
 ## isso que aqui nao ha escurecimento de tela cheia: escurecer tudo esconderia
 ## justamente o que o jogador esta escolhendo.
+##
+## O elenco tem 25 carros, entao a lista corre numa janela em volta do escolhido:
+## mostrar os 25 de uma vez daria uma parede de nomes em corpo minusculo.
 func _draw_menu(s: float) -> void:
 	var w := 470.0 * s
-	var h := 330.0 * s
-	var r := Rect2(64.0 * s, size.y * 0.5 - h * 0.5 + 24.0 * s, w, h)
+	var h := 462.0 * s
+	var r := Rect2(64.0 * s, size.y * 0.5 - h * 0.5 + 18.0 * s, w, h)
 	_panel(r, 20.0 * s, Color(INK, 1.0), EDGE)  # opaco: poste atras vazava
 
 	_text(Vector2(r.position.x + 30.0 * s, r.position.y - 42.0 * s), "ARRANCADA",
 		int(44 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 
-	var sel: int = int(st.get("sel", 0))
 	var opcoes: Array = st.get("opcoes", [])
-	var y := r.position.y + 46.0 * s
-	for i in opcoes.size():
+	var sel: int = int(st.get("sel", 0))
+	var n := opcoes.size()
+	var janela := 7
+	var ini: int = clampi(sel - janela / 2, 0, maxi(0, n - janela))
+	var fim: int = mini(n, ini + janela)
+
+	var lx := r.position.x + 32.0 * s
+	_micro(Vector2(lx + 44.0 * s, r.position.y + 34.0 * s), "ELENCO", DIM, int(11 * s))
+	_text(Vector2(r.position.x + w - 32.0 * s, r.position.y + 34.0 * s),
+		"%d de %d" % [sel + 1, n], int(14 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	var y := r.position.y + 68.0 * s
+	for i in range(ini, fim):
 		var nome: String = opcoes[i][0]
-		var carro: String = opcoes[i][1]
+		var ficha: String = opcoes[i][1]
 		var bandas: Array = opcoes[i][2]
 		var ativo := i == sel
-		var lx := r.position.x + 32.0 * s
 
 		_lamp(Vector2(lx, y), 7.0 * s, AMBER if ativo else DIM, ativo)
-		_text(Vector2(lx + 22.0 * s, y), nome, int(24 * s if ativo else 21 * s),
+		_text(Vector2(lx + 22.0 * s, y), nome, int(23 * s if ativo else 19 * s),
 			TEXT if ativo else DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		_text(Vector2(lx + 22.0 * s, y + 22.0 * s), carro, int(15 * s), DIM,
-			HORIZONTAL_ALIGNMENT_LEFT)
-
 		if ativo:
-			_barras_banda(lx + 22.0 * s, y + 52.0 * s, 150.0 * s, bandas, s,
+			_text(Vector2(lx + 22.0 * s, y + 21.0 * s), ficha, int(15 * s), DIM,
+				HORIZONTAL_ALIGNMENT_LEFT)
+			_barras_banda(lx + 22.0 * s, y + 50.0 * s, 150.0 * s, bandas, s,
 				11.0, 23.0, 14)
-		y += (128.0 if ativo else 66.0) * s
+			y += 126.0 * s
+		else:
+			y += 34.0 * s
 
-	# Mesma borda esquerda do resto do painel: centralizar so o rodape criaria dois
-	# eixos numa coluna que ja e alinhada.
-	_text(Vector2(r.position.x + 32.0 * s, r.position.y + h - 26.0 * s),
+	_text(Vector2(lx, r.position.y + h - 26.0 * s),
 		"setas escolhem   ·   ESPACO confirma", int(17 * s), DIM,
 		HORIZONTAL_ALIGNMENT_LEFT)
 

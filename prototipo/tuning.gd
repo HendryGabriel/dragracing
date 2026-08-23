@@ -16,14 +16,6 @@ const PEAK_RPM := 0.72               # onde o torque e maximo (0..1 da faixa da 
 const CURVE_WIDTH := 2.2             # quanto mais alto, mais estreita a curva
 const LIMITER := 0.20                # multiplicador acima do corte
 
-## Perfis de motor: [banda baixa (1a-2a), media (3a-5a), alta (6a-7a)]
-## Bandas coladas nas fases: baixa=largada, media=aceleracao, alta=topo.
-const PROFILES := {
-	"Torque":        [92.0, 78.0, 42.0],
-	"Equilibrado":   [76.0, 76.0, 76.0],
-	"Alta Rotacao":  [64.0, 76.0, 118.0],
-}
-
 # ---------- Troca de marcha ----------
 const PERFECT := Vector2(0.90, 1.02) # janela verde
 const GOOD := Vector2(0.78, 1.10)

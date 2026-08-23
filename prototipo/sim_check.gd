@@ -434,6 +434,65 @@ turbo epico: banda alta %.0f -> %.0f   |   baixa %.0f -> %.0f"
 		push_error("[10] Turbo nao cobra na largada: baixa nao caiu")
 		fails += 1
 
+	# ---------- checagem 11: o mapa e atravessavel e o chefe e trancado ----------
+	# Mapa sem caminho ate o chefe e run sem fim; chefe destrancado de graca apaga a
+	# decisao de "desafiar agora ou farmar mais" (GDD 6.1).
+	var m := Mapa.new()
+	m.rng.seed = 4242
+	var sem_saida := 0
+	var min_rota := 999
+	var max_rota := 0
+	for tentativa in 40:
+		m.gerar(tentativa % Mapa.ATOS, tentativa)
+		# Toda linha precisa alcancar a seguinte, senao a run trava no meio.
+		for l in m.linhas.size() - 1:
+			for i in m.linhas[l].size():
+				if m.ligacoes(l, i).is_empty():
+					sem_saida += 1
+		# Percorre uma rota qualquer e conta a reputacao maxima possivel.
+		var rep := 0
+		m.linha_atual = -1
+		while true:
+			var alc := m.alcancaveis()
+			if alc.is_empty():
+				break
+			var no := m.entrar(alc[alc.size() - 1])
+			if no.tipo == "marcado":
+				rep += Tuning.REPUTACAO_MARCADO
+			elif no.tipo == "racha":
+				rep += Tuning.REPUTACAO_RACHA
+		min_rota = mini(min_rota, rep)
+		max_rota = maxi(max_rota, rep)
+	print("
+mapa: reputacao de uma rota vai de %d a %d (meta %d)"
+		% [min_rota, max_rota, Mapa.META_REPUTACAO])
+	if sem_saida > 0:
+		push_error("[11] %d nos sem saida: a run trava no meio do mapa" % sem_saida)
+		fails += 1
+	# Se a pior rota ja destranca o chefe, a reputacao nao e trava nenhuma. Se nem a
+	# melhor destranca, o chefe e inalcancavel.
+	if min_rota >= Mapa.META_REPUTACAO:
+		push_error("[11] Reputacao nao trava nada: ate a pior rota chega a %d" % min_rota)
+		fails += 1
+	if max_rota < Mapa.META_REPUTACAO:
+		push_error("[11] Chefe inalcancavel: a melhor rota so junta %d" % max_rota)
+		fails += 1
+
+	# Chegar no chefe trancado nao pode ser beco sem saida: o ato estica.
+	m.gerar(0, 0)
+	m.linha_atual = m.linhas.size() - 2
+	m.idx_atual = 0
+	m.reputacao = 0
+	if not m.precisa_esticar():
+		push_error("[11] Chefe trancado na porta e nao pede trecho novo: run travada")
+		fails += 1
+	var linhas_antes := m.linhas.size()
+	m.esticar(0)
+	if m.linha_atual != -1 or m.linhas.size() < 2:
+		push_error("[11] Esticar o ato nao devolveu um trecho jogavel")
+		fails += 1
+	print("esticar: %d linhas viram %d, e o chefe continua no fim" % [linhas_antes, m.linhas.size()])
+
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()
 

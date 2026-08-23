@@ -107,6 +107,14 @@ const APOSTA_POR_CORRIDA := 11
 const PREMIO_BASE := 45
 const PREMIO_POR_CORRIDA := 8
 
+# ---------- Mapa (GDD 6) ----------
+## Reputacao por vitoria. Rival marcado paga muito mais: e o no que voce NAO
+## precisa pegar, e e onde as runs boas e as mortas se separam.
+const REPUTACAO_RACHA := 2
+const REPUTACAO_MARCADO := 5
+## Aposta do rival marcado, alta de proposito.
+const APOSTA_MARCADO := 2.2
+
 # ---------- Rival ----------
 const AI_SHIFT_POINT := 0.95         # rpm alvo de troca
 const AI_HEAT_TARGET := 0.86         # ate onde a IA deixa esquentar

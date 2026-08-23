@@ -125,6 +125,8 @@ func _draw() -> void:
 			_draw_garagem(s)
 		0:  # MENU
 			_draw_menu(s)
+		6:  # MAPA
+			_draw_mapa(s)
 		_:
 			_draw_card(s)
 
@@ -443,6 +445,109 @@ func _draw_oficina(r: Rect2, s: float) -> void:
 		else:
 			txt += "   ok"
 		_text(Vector2(cx, cy), txt, int(17 * s), cor)
+
+
+## Simbolo de cada tipo de no. Letra, nao icone: sao sete tipos e um alfabeto de
+## sete icones desenhados a mao seria pior de ler que sete letras.
+const SIMBOLO := {
+	"racha": "R", "marcado": "M", "oficina": "$", "ferro": "F",
+	"boxes": "B", "evento": "?", "chefe": "X",
+}
+const ROTULO_NO := {
+	"racha": "racha", "marcado": "rival marcado", "oficina": "oficina",
+	"ferro": "ferro-velho", "boxes": "boxes", "evento": "evento", "chefe": "CHEFE",
+}
+
+
+## O mapa da run. Cada coluna e uma linha do mapa, da largada (esquerda) ao chefe
+## (direita). O que esta em jogo aqui nao e "qual recompensa e maior", e "qual
+## confronto a minha build ganha melhor" -- por isso o no diz piso e rival antes.
+func _draw_mapa(s: float) -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.88))
+	var w := 1130.0 * s
+	var h := 470.0 * s
+	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5 - 12.0 * s, w, h)
+	_panel(r, 22.0 * s, SURFACE, EDGE)
+
+	_text(Vector2(r.position.x + 34.0 * s, r.position.y + 40.0 * s),
+		"ATO %d" % int(st.get("ato", 1)), int(30 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+
+	# Reputacao: a trava do chefe, e a razao de o rival marcado existir.
+	var rep: int = int(st.get("reputacao", 0))
+	var meta: int = int(st.get("meta_rep", 12))
+	var bx := r.position.x + w - 300.0 * s
+	_micro(Vector2(bx - 46.0 * s, r.position.y + 40.0 * s), "REPUTACAO", DIM, int(10 * s))
+	var br := Rect2(bx, r.position.y + 33.0 * s, 190.0 * s, 13.0 * s)
+	draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.40))
+	var f: float = clampf(float(rep) / maxf(float(meta), 1.0), 0.0, 1.0)
+	if f > 0.001:
+		draw_colored_polygon(_cham(Rect2(br.position,
+			Vector2(190.0 * s * f, 13.0 * s)), 4.0 * s), GREEN if f >= 1.0 else AMBER)
+	_text(Vector2(r.position.x + w - 34.0 * s, r.position.y + 40.0 * s),
+		"%d/%d" % [rep, meta], int(17 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	var linhas: Array = st.get("linhas", [])
+	var alc: Array = st.get("alcancaveis", [])
+	var alvo: int = int(st.get("linha_alvo", 0))
+	var sel: int = int(st.get("sel_no", 0))
+	var lin_at: int = int(st.get("linha_atual", -1))
+	var idx_at: int = int(st.get("idx_atual", -1))
+
+	var col_w := (w - 120.0 * s) / maxf(float(linhas.size()), 1.0)
+	var x0 := r.position.x + 76.0 * s
+	var cy := r.position.y + 200.0 * s
+	var passo := 62.0 * s
+
+	# Ligacoes primeiro, para os nos ficarem por cima delas.
+	var ligs: Array = st.get("ligacoes", [])
+	for e in ligs:
+		var ax := x0 + col_w * int(e[0])
+		var ay := cy + (int(e[1]) - (int(e[2]) - 1) * 0.5) * passo
+		var bx2 := x0 + col_w * (int(e[0]) + 1)
+		var by2 := cy + (int(e[3]) - (int(e[4]) - 1) * 0.5) * passo
+		var viva: bool = bool(e[5])
+		draw_line(Vector2(ax, ay), Vector2(bx2, by2),
+			Color(AMBER, 0.55) if viva else Color(EDGE, 0.55), 2.0 if viva else 1.0, true)
+
+	for l in linhas.size():
+		var col: Array = linhas[l]
+		var cx := x0 + col_w * l
+		for i in col.size():
+			var no: Dictionary = col[i]
+			var y := cy + (i - (col.size() - 1) * 0.5) * passo
+			var eh_alvo := l == alvo and (i in alc)
+			var eh_sel := eh_alvo and i == sel
+			var eh_atual := l == lin_at and i == idx_at
+
+			var cor := DIM
+			if no.tipo == "chefe":
+				cor = RED
+			elif eh_alvo:
+				cor = AMBER
+			if eh_atual:
+				cor = TEXT
+
+			var raio := (17.0 if eh_sel else 13.0) * s
+			_lamp(Vector2(cx, y), raio, cor, eh_alvo or eh_atual or bool(no.visitado))
+			_text(Vector2(cx, y), SIMBOLO.get(no.tipo, "?"), int(15 * s),
+				INK if (eh_alvo or eh_atual) else DIM)
+			if eh_sel:
+				draw_arc(Vector2(cx, y), raio + 7.0 * s, 0, TAU, 40, TEXT, 2.0, true)
+
+	# Ficha do no escolhido: piso e rival, nunca os numeros.
+	var ficha: Array = st.get("ficha_no", [])
+	var fy := r.position.y + h - 132.0 * s
+	for linha_txt in ficha:
+		var txt: String = linha_txt
+		var cor2 := TEXT
+		if txt.begins_with("~"):
+			txt = txt.substr(1)
+			cor2 = DIM
+		_text(Vector2(size.x * 0.5, fy), txt, int(19 * s), cor2)
+		fy += 26.0 * s
+
+	_text(Vector2(size.x * 0.5, r.position.y + h - 26.0 * s),
+		"setas escolhem   ·   ESPACO entra no no   ·   G garagem", int(17 * s), DIM)
 
 
 ## A garagem. Nao e uma lista de pecas: o que precisa ser lido aqui e a FORMA do

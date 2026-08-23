@@ -6,7 +6,7 @@ extends Node3D
 ##   2. Da pra SENTIR a diferenca entre torque e alta rotacao em 30s?
 ##   3. Segurar o nitro ate quase estourar da frio na barriga?
 
-enum State { MENU, STAGING, RACING, RESULT, OFERTA, GARAGEM }
+enum State { MENU, STAGING, RACING, RESULT, OFERTA, GARAGEM, MAPA }
 
 const LANE := 4.3          # afastamento lateral de cada carro
 const POST_SPACING := 20.0 # m entre postes de referencia
@@ -84,6 +84,16 @@ var menu_idx := 0
 var proximo_piso := "pista"
 var piso_rng := RandomNumberGenerator.new()
 var piso_pendente := true
+var mapa := Mapa.new()
+var sel_no := 0
+var no_tipo := "racha"      # tipo do no em que voce entrou
+var rival_forcado := ""     # o no manda o rival; vazio = sorteio livre
+var ofertas_pagas := false  # oficina cobra; ferro-velho e de graca porem gasto
+## Chefe: melhor de 3, em tres pisos diferentes e SEM reparo entre elas (GDD 6.5).
+## E aqui que tudo que a run construiu e cobrado de uma vez -- build, estado das
+## pecas, escolha de pneu reserva e disciplina para nao forcar calor.
+var chefe_placar := [0, 0]
+var chefe_pisos: Array = []
 ## Onde ficam as caixas de roda em cada foto, medidas por
 ## ferramentas/detectar_rodas.py. Carro sem medida simplesmente corre sem roda.
 var rodas_anchors: Dictionary = {}
@@ -112,7 +122,11 @@ func _ready() -> void:
 		_preview_menu()
 		await get_tree().process_frame
 		await _shot_named("menu")
-		_start_staging()
+		_to_mapa()
+		await get_tree().process_frame
+		await _shot_named("mapa")
+		# entra no primeiro no alcancavel: a linha 0 e sempre um racha
+		_entrar_no(mapa.alcancaveis()[0])
 		rev = 0.55
 		await get_tree().process_frame
 		await _shot_named("arvore")
@@ -314,9 +328,125 @@ func _to_oferta() -> void:
 		_to_garagem(_aviso_troca(build.equipar_guardando(ofertas[0])))
 
 
+## O mapa: onde a rota vira decisao. Entrar num no o consome.
+func _to_mapa() -> void:
+	state = State.MAPA
+	if mapa.linhas.is_empty():
+		mapa.gerar(0, garagem.corridas)
+	if mapa.precisa_esticar():
+		mapa.esticar(garagem.corridas)
+	var alc := mapa.alcancaveis()
+	if alc.is_empty():
+		# Fim do ato: proximo ato, mapa novo.
+		mapa.gerar(mini(mapa.ato + 1, Mapa.ATOS - 1), garagem.corridas)
+		alc = mapa.alcancaveis()
+	sel_no = clampi(sel_no, 0, maxi(alc.size() - 1, 0))
+
+
+## Entrar num no. O tipo decide o que acontece; o piso e o rival ja vem dele, e e
+## por isso que o mapa consegue telegrafar o confronto antes da escolha.
+func _entrar_no(pos: int) -> void:
+	var no := mapa.entrar(pos)
+	no_tipo = no.tipo
+	proximo_piso = no.piso
+	rival_forcado = no.rival
+	match no_tipo:
+		"racha", "marcado":
+			_start_staging()
+		"chefe":
+			chefe_placar = [0, 0]
+			chefe_pisos = Piso.NOMES.duplicate()
+			chefe_pisos.shuffle()
+			chefe_pisos.resize(3)
+			proximo_piso = chefe_pisos[0]
+			_start_staging()
+		"oficina":
+			ofertas_pagas = true
+			_to_oferta()
+		"ferro":
+			ofertas_pagas = false
+			_to_oferta()
+		"boxes":
+			_boxes()
+		_:
+			_evento()
+
+
+## Boxes: a valvula gratuita do GDD 6.2. Conserta de graca o que estiver pior --
+## sem ela o jogador nunca gasta com conserto (dinheiro tambem compra build) e
+## chega no chefe destrocado.
+## Fim do confronto do chefe. Vencer fecha o ato; perder custa a reputacao
+## acumulada e devolve voce ao mapa -- o no continua la, mas voce precisa correr
+## mais nos para reabrir o desafio, e os nos sao finitos.
+func _fechar_chefe() -> void:
+	if chefe_placar[0] >= 2:
+		if mapa.ato + 1 >= Mapa.ATOS:
+			card_title = "RUN VENCIDA"
+			card_color = Hud.GREEN
+			card_lines = [
+				"%d vitorias em %d corridas" % [garagem.vitorias, garagem.corridas],
+				"~M comeca outra run   ·   ESC sai",
+			]
+			garagem.acabou = true
+			state = State.RESULT
+			return
+		mapa.gerar(mapa.ato + 1, garagem.corridas)
+		_to_garagem("ato vencido; o proximo comeca agora")
+	else:
+		mapa.reputacao = 0
+		mapa.linha_atual = mapa.linhas.size() - 2
+		_to_garagem("chefe venceu; a reputacao zerou e o desafio fechou")
+
+
+func _boxes() -> void:
+	var aviso := "boxes: nada para consertar"
+	if garagem.motor_quebrado or garagem.motor >= garagem.transmissao:
+		if garagem.motor > 0.0 or garagem.motor_quebrado:
+			garagem.motor = 0.0
+			garagem.motor_quebrado = false
+			aviso = "boxes: motor recuperado de graca"
+	elif garagem.transmissao > 0.0 or garagem.cambio_quebrado:
+		garagem.transmissao = 0.0
+		garagem.cambio_quebrado = false
+		aviso = "boxes: cambio recuperado de graca"
+	garagem.nitro = Tuning.NITRO_CAPACITY
+	_to_garagem(aviso)
+
+
+## Evento: texto e escolha com risco. Barato de produzir e e onde entra
+## personalidade -- por ora, uma aposta seca.
+func _evento() -> void:
+	var ganho := int(garagem.aposta() * 1.5)
+	if mapa.rng.randf() < 0.55:
+		garagem.dinheiro += ganho
+		_to_garagem("evento: racha clandestino rendeu %d" % ganho)
+	else:
+		garagem.dinheiro = maxi(0, garagem.dinheiro - ganho / 2)
+		garagem.motor = minf(1.0, garagem.motor + 0.10)
+		_to_garagem("evento: a policia apareceu; %d e um susto no motor" % (ganho / 2))
+
+
 ## A garagem e onde a build fica legivel, e o unico lugar em que a reserva serve
 ## para alguma coisa. Passa por ela toda corrida, de proposito: o GDD pede que a
 ## build seja sentida, e para isso ela precisa estar na frente do jogador.
+## Peca da oficina tem preco; a do ferro-velho e de graca, mas vem gasta.
+func _descricao_no(tipo: String) -> String:
+	match tipo:
+		"oficina": return "tres pecas a venda; o caixa decide"
+		"ferro": return "peca de graca, ja desgastada"
+		"boxes": return "conserto gratuito do que estiver pior"
+		_: return "texto e escolha com risco"
+
+
+func _preco(p: Peca) -> int:
+	return 60 + p.raridade * 70 + garagem.corridas * 4
+
+
+func _to_oferta_aviso(texto: String) -> void:
+	card_lines = ["~" + texto]
+	state = State.OFERTA
+
+
 func _aviso_troca(destino: String) -> String:
 	match destino:
 		"reserva": return "a peca antiga foi para a reserva"
@@ -345,6 +475,8 @@ func _to_menu() -> void:
 	garagem = Garagem.new()
 	build = Build.new()
 	piso_rng.randomize()
+	mapa = Mapa.new()
+	mapa.rng.randomize()
 	proximo_piso = Piso.sortear(piso_rng)
 	player = Car.new()
 	rival = Car.new()
@@ -393,7 +525,7 @@ func _start_staging() -> void:
 
 	car_sprite.modulate = Color(0.62, 0.80, 1.0)
 	rival_sprite.visible = true
-	rival_car = Cars.sortear(rival.rng, garagem.corridas)
+	rival_car = rival_forcado if not rival_forcado.is_empty() 		else Cars.sortear(rival.rng, garagem.corridas)
 	if auto:
 		# rival fixo numa foto espelhada: assim o print de checagem sempre exercita
 		# o caminho do flip, em vez de depender do sorteio
@@ -444,9 +576,16 @@ func _to_result() -> void:
 	state = State.RESULT
 	var venceu := won()
 	garagem.recolher(player, venceu, player_car)
+	if venceu:
+		mapa.premiar(no_tipo)
+	if no_tipo == "chefe":
+		chefe_placar[0 if venceu else 1] += 1
 
 	_card_padrao()
 	card_title = "VENCEU" if venceu else "DERROTA"
+	if no_tipo == "chefe" and not garagem.acabou:
+		card_title = "CHEFE  %d x %d" % [chefe_placar[0], chefe_placar[1]]
+		card_color = Hud.GREEN if venceu else Hud.RED
 	card_color = Hud.GREEN if venceu else Hud.RED
 	if player.travado:
 		card_title = "CAMBIO QUEBRADO"
@@ -511,7 +650,7 @@ func _input(event: InputEvent) -> void:
 					menu_idx -= 1
 					_preview_menu()
 				elif k.keycode == KEY_SPACE or k.keycode == KEY_ENTER:
-					_start_staging()
+					_to_mapa()
 		State.STAGING:
 			if k.keycode == KEY_SPACE:
 				if k.pressed:
@@ -523,10 +662,24 @@ func _input(event: InputEvent) -> void:
 				var q := player.shift_up()
 				if q != "":
 					_set_flash("TROCA " + q.to_upper() if q != "boa" else "boa")
+		State.MAPA:
+			if k.pressed:
+				var alc := mapa.alcancaveis()
+				if k.keycode == KEY_DOWN or k.keycode == KEY_RIGHT:
+					sel_no = wrapi(sel_no + 1, 0, maxi(alc.size(), 1))
+				elif k.keycode == KEY_UP or k.keycode == KEY_LEFT:
+					sel_no = wrapi(sel_no - 1, 0, maxi(alc.size(), 1))
+				elif k.keycode == KEY_G:
+					_to_garagem("")
+				elif k.keycode == KEY_SPACE and sel_no < alc.size():
+					var alvo: int = alc[sel_no]
+					var no: Dictionary = mapa.linhas[mapa.linha_alvo()][alvo]
+					if no.tipo != "chefe" or mapa.chefe_liberado():
+						_entrar_no(alvo)
 		State.GARAGEM:
 			if k.pressed:
 				if k.keycode == KEY_SPACE and not garagem.precisa_consertar():
-					_start_staging()
+					_to_mapa()
 				elif k.keycode == KEY_M:
 					_to_garagem("" if garagem.consertar_motor(player_car)
 						else "dinheiro nao chega para o motor")
@@ -544,10 +697,31 @@ func _input(event: InputEvent) -> void:
 			if k.pressed:
 				var idx := [KEY_1, KEY_2, KEY_3].find(k.keycode)
 				if idx >= 0 and idx < ofertas.size():
-					_to_garagem(_aviso_troca(build.equipar_guardando(ofertas[idx])))
+					var p: Peca = ofertas[idx]
+					if ofertas_pagas:
+						var preco := _preco(p)
+						if garagem.dinheiro < preco:
+							_to_oferta_aviso("caixa nao cobre essa peca")
+							return
+						garagem.dinheiro -= preco
+					if no_tipo == "ferro":
+						# GDD 3.6: peca de ferro-velho vem JA desgastada. E a
+						# tentacao: o motor dos sonhos que pode fundir a qualquer
+						# momento.
+						match p.slot:
+							"motor": garagem.motor = maxf(garagem.motor, 0.55)
+							"transmissao": garagem.transmissao = maxf(garagem.transmissao, 0.55)
+					_to_garagem(_aviso_troca(build.equipar_guardando(p)))
 		State.RESULT:
 			if k.pressed and k.keycode == KEY_R and not garagem.acabou:
-				if won():
+				if no_tipo == "chefe" and maxi(chefe_placar[0], chefe_placar[1]) < 2:
+					# Sem oficina e sem garagem entre as corridas do chefe: o carro
+					# tem que AGUENTAR as tres, e e isso que cobra o desgaste.
+					proximo_piso = chefe_pisos[chefe_placar[0] + chefe_placar[1]]
+					_start_staging()
+				elif no_tipo == "chefe":
+					_fechar_chefe()
+				elif won():
 					_to_oferta()
 				else:
 					_to_garagem("")
@@ -732,6 +906,40 @@ func _feed_hud(delta: float) -> void:
 				"launch_lo": Tuning.LAUNCH_GREEN.x,
 				"launch_hi": Tuning.LAUNCH_GREEN.y,
 				"matchup": matchup,
+			})
+		State.MAPA:
+			var alc := mapa.alcancaveis()
+			var ficha: Array = []
+			if sel_no < alc.size():
+				var no: Dictionary = mapa.linhas[mapa.linha_alvo()][alc[sel_no]]
+				var rot: String = Hud.ROTULO_NO.get(no.tipo, no.tipo)
+				if no.tipo in ["racha", "marcado", "chefe"]:
+					ficha = [
+						"%s   ·   piso %s" % [rot.to_upper(), String(no.piso).to_upper()],
+						"~rival: %s, %s" % [no.rival,
+							Cars.ROSTER[no.rival].carater if Cars.ROSTER.has(no.rival) else "?"],
+						"~%s" % Piso.descricao(no.piso),
+					]
+					if no.tipo == "chefe" and not mapa.chefe_liberado():
+						ficha.append("trancado: reputacao %d de %d"
+							% [mapa.reputacao, Mapa.META_REPUTACAO])
+				else:
+					ficha = [rot.to_upper(), "~" + _descricao_no(no.tipo)]
+			# As ligacoes vao prontas para o HUD: ele desenha, nao calcula rota.
+			var ligs: Array = []
+			for l in mapa.linhas.size() - 1:
+				for i in mapa.linhas[l].size():
+					for j in mapa.ligacoes(l, i):
+						var viva: bool = (l == mapa.linha_atual and i == mapa.idx_atual) 							or (l == 0 and mapa.linha_atual < 0)
+						ligs.append([l, i, mapa.linhas[l].size(), j,
+							mapa.linhas[l + 1].size(), viva])
+			d.merge({
+				"ligacoes": ligs,
+				"ato": mapa.ato + 1, "linhas": mapa.linhas,
+				"alcancaveis": alc, "linha_alvo": mapa.linha_alvo(),
+				"linha_atual": mapa.linha_atual, "idx_atual": mapa.idx_atual,
+				"sel_no": sel_no, "reputacao": mapa.reputacao,
+				"meta_rep": Mapa.META_REPUTACAO, "ficha_no": ficha,
 			})
 		State.MENU:
 			var lista := Cars.elenco()

@@ -379,6 +379,13 @@ O caminho peça → número → forma da corrida está medido: sobre o **mesmo**
 de torque abrem +54m aos 5s e peças de alta rotação rendem +37 km/h no topo. É essa
 diferença que o pilar 1 exige, e ela é checada a cada rodada do `sim_check`.
 
+## 8.5 Ordem de construção
+
+O que ainda falta, em que ordem e por quê, está em [PLANO.md](PLANO.md). Resumo: economia e
+piso primeiro porque destravam quase todo o resto e são pequenos; depois o mapa, que é a
+espinha; depois save e meta-progressão; e por último a profundidade (bônus de conjunto,
+passivos, câmbio automático, formato do tanque).
+
 ## 9. Pendências
 
 Coisas ainda não decididas, em ordem aproximada de urgência:

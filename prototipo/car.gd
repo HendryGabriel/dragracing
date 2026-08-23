@@ -15,6 +15,10 @@ var heat_limit := Tuning.HEAT_LIMIT
 var heat_rate := Tuning.HEAT_RATE
 var cool_rate := Tuning.COOL_RATE
 var nitro_cap := Tuning.NITRO_CAPACITY
+## Piso e pneu (GDD 5). O piso multiplica as tres fases; o pneu so a largada, que
+## e onde ele decide. Os dois entram por Build.aplicar.
+var piso_fases: Array = [1.0, 1.0, 1.0]
+var aderencia := 1.0
 
 var pos := 0.0
 var speed := 0.0
@@ -30,6 +34,10 @@ var time := 0.0
 var desgaste_motor := 0.0
 var desgaste_transmissao := 0.0
 var travado := false          # transmissao quebrou: preso na marcha atual
+var desgaste_turbo := 0.0
+var desgaste_pneu := 0.0
+var turbo_quebrado := false
+var pneu_estourado := false
 
 var launch_mult := 1.0
 var shift_lock := 0.0
@@ -44,10 +52,14 @@ var _roll_t := 0.0
 
 func band_power() -> float:
 	if gear <= 2:
-		return bands[0]
+		# Fase 1 e a unica em que o pneu entra: e a largada que ele decide.
+		return bands[0] * piso_fases[0] * aderencia
 	elif gear <= 5:
-		return bands[1]
-	return bands[2]
+		return bands[1] * piso_fases[1]
+	var alta: float = bands[2] * piso_fases[2]
+	if turbo_quebrado:
+		alta *= Tuning.TURBO_QUEBRADO
+	return alta
 
 
 func band_name() -> String:
@@ -140,6 +152,20 @@ func step(dt: float) -> void:
 	else:
 		heat -= cool_rate * dt
 	heat = clampf(heat, 0.0, 2.0)
+
+	# Turbo: a acao que gasta e segurar boost, e e nela que o dado rola.
+	if nitro_on and not blown and not turbo_quebrado:
+		desgaste_turbo = minf(1.0, desgaste_turbo + Tuning.TURBO_WEAR * dt)
+		if rng.randf() < Tuning.TURBO_BREAK * desgaste_turbo * dt:
+			turbo_quebrado = true
+
+	# Pneu: gasta e pode estourar SO na largada, e so com o pneu errado para o piso.
+	if gear <= 2 and not pneu_estourado and aderencia < 0.98:
+		var erro: float = 1.0 - aderencia
+		desgaste_pneu = minf(1.0, desgaste_pneu + Tuning.PNEU_WEAR * erro * dt)
+		if rng.randf() < Tuning.PNEU_BREAK * desgaste_pneu * erro * dt:
+			pneu_estourado = true
+			speed *= 1.0 - Tuning.PNEU_ESTOURO_PERDA
 
 	# Risco termico: o dado so e rolado enquanto voce esta forcando.
 	if not blown:

@@ -162,27 +162,29 @@ func _draw_cluster(s: float) -> void:
 ## mesmo idioma: quanto mais cheia, maior a chance de quebrar. Desgaste NAO tira
 ## desempenho, entao a barra e aviso, nunca penalidade ja aplicada.
 func _draw_estado(s: float) -> void:
-	var w := 420.0 * s
+	var w := 592.0 * s
 	var h := 30.0 * s
 	var cluster_top := size.y - 112.0 * s - 26.0 * s
 	var r := Rect2(size.x * 0.5 - w * 0.5, cluster_top - h - 10.0 * s, w, h)
 	_panel(r, 10.0 * s, Color(SURFACE, 0.80), Color(EDGE, 0.7))
 
-	var bar_w := 110.0 * s
+	var bar_w := 68.0 * s
 	var bar_h := 9.0 * s
 	var cy := r.position.y + h * 0.5
 	var pares := [
 		["MOTOR", float(st.get("desg_motor", 0.0)), false],
 		["CAMBIO", float(st.get("desg_cambio", 0.0)), bool(st.get("travado", false))],
+		["TURBO", float(st.get("desg_turbo", 0.0)), bool(st.get("turbo_quebrado", false))],
+		["PNEU", float(st.get("desg_pneu", 0.0)), bool(st.get("pneu_estourado", false))],
 	]
 	for i in pares.size():
 		var rotulo: String = pares[i][0]
 		var d: float = clampf(pares[i][1], 0.0, 1.0)
 		var quebrado: bool = pares[i][2]
-		var bx := r.position.x + (16.0 + i * 216.0) * s
-		_micro(Vector2(bx + 28.0 * s, cy), rotulo, DIM, int(10 * s))
+		var bx := r.position.x + (14.0 + i * 146.0) * s
+		_micro(Vector2(bx + 26.0 * s, cy), rotulo, DIM, int(9 * s))
 
-		var br := Rect2(bx + 62.0 * s, cy - bar_h * 0.5, bar_w, bar_h)
+		var br := Rect2(bx + 56.0 * s, cy - bar_h * 0.5, bar_w, bar_h)
 		draw_colored_polygon(_cham(br, 3.0 * s), Color(0.0, 0.0, 0.0, 0.40))
 		var col := TEXT
 		if quebrado or d >= 0.70:
@@ -194,7 +196,8 @@ func _draw_estado(s: float) -> void:
 			draw_colored_polygon(_cham(
 				Rect2(br.position, Vector2(maxf(bar_w * f, 6.0 * s), bar_h)), 3.0 * s), col)
 		if quebrado:
-			_text(Vector2(br.position.x + bar_w + 30.0 * s, cy), "QUEBRADO", int(13 * s), RED)
+			draw_line(Vector2(br.position.x, br.position.y - 4.0 * s),
+				Vector2(br.position.x + bar_w, br.position.y + bar_h + 4.0 * s), RED, 2.0, true)
 
 
 ## Faixa de giro em lampadas: ambar subindo, verde na janela de troca, vermelho
@@ -275,8 +278,9 @@ func _draw_gap(s: float) -> void:
 	_lamp(Vector2(cx - k * rail_w * 0.5, y), 5.0 * s, DIM, true)
 	_lamp(Vector2(cx + k * rail_w * 0.5, y), 7.5 * s, col, true)
 
-	_text(Vector2(cx, 122.0 * s),
-		"%s   ·   %.0f de %.0f m" % [st.phase, st.pos, st.dist], int(18 * s), DIM)
+	_text(Vector2(cx, 122.0 * s), "%s   ·   %s   ·   %.0f de %.0f m"
+		% [st.phase, String(st.get("piso", "")).to_upper(), st.pos, st.dist],
+		int(18 * s), DIM)
 	_text(Vector2(cx, 146.0 * s), "corrida %d   ·   %d vitorias"
 		% [int(st.get("corrida", 1)), int(st.get("vitorias", 0))], int(15 * s), DIM)
 
@@ -447,7 +451,9 @@ func _draw_oficina(r: Rect2, s: float) -> void:
 func _draw_garagem(s: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.86))
 	var w := 960.0 * s
-	var h := 546.0 * s
+	# Sete slots a esquerda e forma + trecho + reserva a direita: o painel cresceu
+	# junto com o carro.
+	var h := 620.0 * s
 	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5, w, h)
 	_panel(r, 22.0 * s, SURFACE, EDGE)
 
@@ -476,7 +482,7 @@ func _draw_garagem(s: float) -> void:
 		if not vazio:
 			_text(Vector2(lx + 126.0 * s, y + 21.0 * s), efeito, int(15 * s), DIM,
 				HORIZONTAL_ALIGNMENT_LEFT)
-		y += 46.0 * s
+		y += 42.0 * s
 
 	# ---- coluna direita: a forma do carro ----
 	var rx := r.position.x + 600.0 * s
@@ -495,6 +501,26 @@ func _draw_garagem(s: float) -> void:
 	for d in detalhes:
 		_text(Vector2(rx, by), d, int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
 		by += 22.0 * s
+
+	# ---- proximo trecho: e a informacao que faz a escolha de pneu existir ----
+	by += 10.0 * s
+	_micro(Vector2(rx + 56.0 * s, by), "PROXIMO TRECHO", DIM, int(11 * s))
+	by += 26.0 * s
+	var ader: float = float(st.get("aderencia", 1.0))
+	var cor_p := TEXT
+	if ader < 0.92:
+		cor_p = RED
+	elif ader < 0.99:
+		cor_p = AMBER
+	elif ader > 1.02:
+		cor_p = GREEN
+	_text(Vector2(rx, by), "%s   ·   pneu %s   %+.0f%%"
+		% [String(st.get("piso", "")).to_upper(), st.get("pneu", "misto"),
+			(ader - 1.0) * 100.0], int(17 * s), cor_p, HORIZONTAL_ALIGNMENT_LEFT)
+	by += 20.0 * s
+	_text(Vector2(rx, by), String(st.get("piso_desc", "")), int(13 * s), DIM,
+		HORIZONTAL_ALIGNMENT_LEFT)
+	by += 18.0 * s
 
 	# ---- reserva ----
 	by += 14.0 * s

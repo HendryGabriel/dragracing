@@ -117,7 +117,7 @@ Duas coisas que a medição corrigiu no caminho:
 
 ---
 
-## Fase 2 — Piso, pneu e turbo
+## Fase 2 — Piso, pneu e turbo ✅ FEITA
 
 **GDD §5, resto do §3.2, resto do §4.2–4.3.**
 
@@ -141,7 +141,19 @@ o turbo muda a fase 3, e que **nenhum piso é dominante** — se um piso for sem
 a escolha de rota nasce morta.
 
 **Risco de arte:** hoje existe **uma** roda genérica. Pneu como slot visível pede arte por
-tipo, e cinco carros ainda não têm âncora medida.
+tipo, e cinco carros ainda não têm âncora medida. **Continua em aberto** — o pneu já muda a
+corrida, mas ainda não muda o que se vê.
+
+**Resultado medido:**
+
+- **Lama pune torque mais que alta rotação**: custa 37m contra 32m na posição aos 5s.
+- **Não existe melhor pneu**: slick faz 96m na pista e 28m na lama; cravado faz 76m e 64m.
+- **Turbo muda a fase 3 e cobra a largada**: banda alta 76 → 126, banda baixa 76 → 50.
+- Os 7 slots existem, e as 4 peças que desgastam agora desgastam.
+
+E uma medição que valida o telegrafar do piso: ensinar a simulação a **trocar de pneu contra
+o piso do próximo trecho** levou a sequência de 16 para **26 corridas**. Piso e pneu não são
+textura — são a decisão que quase dobra a sobrevivência.
 
 ---
 

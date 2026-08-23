@@ -61,6 +61,18 @@ const MOTOR_RISK_GASTO := 4.00
 const TRANS_WEAR := 0.07             # desgaste por troca ruim
 const TRANS_BREAK := 0.40            # chance de quebrar na troca ruim, x desgaste
 
+## Turbo: gasta pelo TEMPO em boost sustentado, e so pode quebrar enquanto voce
+## esta segurando. Quebrado, a banda alta some -- a fase 3 morre.
+const TURBO_WEAR := 0.030            # desgaste/s de boost
+const TURBO_BREAK := 0.10            # chance/s no boost, x desgaste
+const TURBO_QUEBRADO := 0.35         # o que sobra da banda alta
+
+## Pneu: gasta por PISO ERRADO, e so na largada, que e onde ele decide. Estourado,
+## derrapa e custa velocidade -- da para terminar, e as vezes ate ganhar.
+const PNEU_WEAR := 0.55              # desgaste/s de largada com pneu errado
+const PNEU_BREAK := 0.45             # chance/s na largada, x desgaste x erro
+const PNEU_ESTOURO_PERDA := 0.42     # fracao da velocidade perdida na derrapada
+
 ## Faixas de estado, so para leitura -- nao mudam desempenho.
 const FAIXA_GASTA := 0.34
 const FAIXA_CRITICA := 0.70

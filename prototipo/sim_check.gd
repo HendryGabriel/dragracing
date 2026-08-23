@@ -28,8 +28,11 @@ func _make(bands: Array, seed_v: int) -> Car:
 
 
 func _run(bands: Array, shift_at: float, nitro_from: float, hold_to: float,
-		seed_v: int) -> Dictionary:
+		seed_v: int, piso := "pista", pneu := "misto") -> Dictionary:
 	var c := _make(bands, seed_v)
+	c.piso_fases = Piso.fases(piso)
+	c.heat_rate += Piso.calor(piso)
+	c.aderencia = Peca.aderencia(pneu, piso)
 	var marks := {}
 	var pos_at_5 := 0.0
 	while c.finished_at < 0.0 and c.time < 120.0:
@@ -87,7 +90,18 @@ func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
 		c.set_launch(0.70)
 		# A build do jogador cresce junto com o rival: sem isso a escada do rival
 		# atropela em cinco corridas e a sequencia nunca chega a lugar nenhum.
-		b.aplicar(c, Cars.bandas(carro))
+		var piso: String = Piso.NOMES[rng.randi() % Piso.NOMES.size()]
+		# O jogador ve o piso do trecho ANTES de correr, entao usa a reserva para
+		# trocar de pneu. Sem modelar isso, a simulacao mede um jogador que ignora
+		# a informacao que o jogo passa -- e subestima a sequencia.
+		for i in range(b.reserva.size()):
+			var pr: Peca = b.reserva[i]
+			if pr.slot != "roda":
+				continue
+			if Peca.aderencia(pr.mods.get("pneu", "misto"), piso) 					> Peca.aderencia(b.pneu_equipado(), piso):
+				b.trocar_reserva(i)
+				break
+		b.aplicar(c, Cars.bandas(carro), piso)
 		g.aplicar(c)
 		var shift_at := 0.96
 		var hold := 0.0
@@ -108,6 +122,8 @@ func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
 		# O rival SOBE com a sequencia. Com rival parado, jogar seguro vence sempre e
 		# forcar nunca compensa -- a escada e o que obriga a arriscar mais tarde.
 		riv.bands = Cars.curva(238 + g.corridas * 3, "equilibrado")
+		riv.piso_fases = Piso.fases(piso)
+		riv.aderencia = Peca.aderencia("misto", piso)
 		riv.rng.seed = seed_v * 7919 + g.corridas
 		riv.set_launch(riv.rng.randf_range(0.58, 0.84))
 		var ponto := 0.96
@@ -355,6 +371,67 @@ reserva ao trocar 4 motores seguidos: %s (teto %d)"
 	b.trocar_reserva(0)
 	if b.pecas["motor"] != antes or b.reserva[0] != guardada:
 		push_error("[7] Trocar com a reserva duas vezes nao volta ao original")
+		fails += 1
+
+	# ---------- checagem 8: piso muda QUEM ganha, nao so o relogio ----------
+	# A promessa do GDD 5 e que lama pune torque e premia alta rotacao. Se os dois
+	# perderem o mesmo tanto, piso e textura, nao decisao.
+	print("
+=== piso: posicao aos 5s (largada), pneu misto ===")
+	var p5 := {}
+	for carater in ["torque", "alta"]:
+		var linha := PackedStringArray()
+		p5[carater] = {}
+		for piso in Piso.NOMES:
+			var rr := _run(Cars.curva(300, carater), 0.96, 2.0, 0.0, 1, piso)
+			p5[carater][piso] = rr.pos5
+			linha.append("%s %.0fm" % [piso, rr.pos5])
+		print("%-8s %s" % [carater, " | ".join(linha)])
+	var perda_torque: float = p5["torque"]["pista"] - p5["torque"]["lama"]
+	var perda_alta: float = p5["alta"]["pista"] - p5["alta"]["lama"]
+	print("lama custa %.0fm ao torque e %.0fm a alta rotacao" % [perda_torque, perda_alta])
+	if perda_torque <= perda_alta:
+		push_error("[8] Lama nao pune torque mais que alta rotacao: %.0fm x %.0fm"
+			% [perda_torque, perda_alta])
+		fails += 1
+
+	# ---------- checagem 9: pneu certo x errado ----------
+	# Nao existe "o melhor pneu": cada um tem um piso onde ganha e outro onde perde.
+	print("
+=== pneu na lama e na pista, posicao aos 5s ===")
+	var melhor := {}
+	for pneu in Peca.PNEUS:
+		var linha2 := PackedStringArray()
+		for piso in ["pista", "lama"]:
+			var rr := _run(Cars.curva(300, "equilibrado"), 0.96, 2.0, 0.0, 1, piso, pneu)
+			melhor[pneu + "|" + piso] = rr.pos5
+			linha2.append("%s %.0fm" % [piso, rr.pos5])
+		print("%-10s %s" % [pneu, " | ".join(linha2)])
+	if melhor["cravado|lama"] <= melhor["slick|lama"]:
+		push_error("[9] Pneu cravado nao ganha na lama")
+		fails += 1
+	if melhor["slick|pista"] <= melhor["cravado|pista"]:
+		push_error("[9] Slick nao ganha na pista")
+		fails += 1
+
+	# ---------- checagem 10: turbo muda a fase 3 ----------
+	var sem := Build.new()
+	var com := Build.new()
+	com.equipar(Peca.gerar("turbo", "Quimica", 2))
+	var base_b: Array = Cars.bandas(REFS["Equilibrado"])
+	var c_sem := Car.new()
+	sem.aplicar(c_sem, base_b)
+	var c_com := Car.new()
+	com.aplicar(c_com, base_b)
+	print("
+turbo epico: banda alta %.0f -> %.0f   |   baixa %.0f -> %.0f"
+		% [c_sem.bands[2], c_com.bands[2], c_sem.bands[0], c_com.bands[0]])
+	if c_com.bands[2] - c_sem.bands[2] < 12.0:
+		push_error("[10] Turbo nao muda a fase 3: alta so subiu %.0f"
+			% (c_com.bands[2] - c_sem.bands[2]))
+		fails += 1
+	if c_com.bands[0] >= c_sem.bands[0]:
+		push_error("[10] Turbo nao cobra na largada: baixa nao caiu")
 		fails += 1
 
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------

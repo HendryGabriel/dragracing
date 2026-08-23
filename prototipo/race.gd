@@ -79,6 +79,11 @@ var card_head: Array = ["", "motor", "baixa / media / alta", "carro"]
 var card_cols_dim: Array = [2, 3]
 var garagem_aviso := ""
 var menu_idx := 0
+## O piso do PROXIMO trecho e sorteado na garagem, nao na largada: so assim
+## escolher pneu e decisao em vez de loteria (GDD 5, "piso telegrafado no mapa").
+var proximo_piso := "pista"
+var piso_rng := RandomNumberGenerator.new()
+var piso_pendente := true
 ## Onde ficam as caixas de roda em cada foto, medidas por
 ## ferramentas/detectar_rodas.py. Carro sem medida simplesmente corre sem roda.
 var rodas_anchors: Dictionary = {}
@@ -322,6 +327,12 @@ func _aviso_troca(destino: String) -> String:
 func _to_garagem(aviso: String) -> void:
 	state = State.GARAGEM
 	garagem_aviso = aviso
+	# O trecho seguinte so e sorteado uma vez; reentrar na garagem (trocar peca,
+	# consertar) nao pode re-sortear, senao o jogador escolhe pneu contra um piso
+	# que muda debaixo dele.
+	if piso_pendente:
+		proximo_piso = Piso.sortear(piso_rng)
+		piso_pendente = false
 	if auto:
 		_shot_named("garagem")
 
@@ -333,6 +344,8 @@ func _to_menu() -> void:
 	state = State.MENU
 	garagem = Garagem.new()
 	build = Build.new()
+	piso_rng.randomize()
+	proximo_piso = Piso.sortear(piso_rng)
 	player = Car.new()
 	rival = Car.new()
 	_preview_menu()
@@ -352,6 +365,7 @@ func _preview_menu() -> void:
 
 func _start_staging() -> void:
 	state = State.STAGING
+	piso_pendente = true   # o proximo trecho volta a ser sorteado na garagem
 	rev = 0.0
 	revving = false
 	flash = ""
@@ -360,7 +374,7 @@ func _start_staging() -> void:
 	player = Car.new()
 	player.label = "Voce"
 	player.rng.randomize()
-	build.aplicar(player, Cars.bandas(player_car))
+	build.aplicar(player, Cars.bandas(player_car), proximo_piso)
 	garagem.aplicar(player)   # depois da build: o nitro guardado vence o tanque cheio
 
 	rival = Car.new()
@@ -371,7 +385,9 @@ func _start_staging() -> void:
 	var rb := Build.new()
 	for i in mini(Peca.SLOTS.size(), 1 + garagem.corridas / 2):
 		rb.equipar(Peca.sortear(rival.rng))
-	rb.aplicar(rival, Cars.bandas(rival_car))
+	# O rival corre no mesmo piso, com pneu proprio: as vezes o piso pune ele mais
+	# que voce, e e essa leitura que o mapa vai telegrafar.
+	rb.aplicar(rival, Cars.bandas(rival_car), proximo_piso)
 	rival.set_launch(randf_range(0.58, 0.84))
 	ai_shift_point = Tuning.AI_SHIFT_POINT
 
@@ -391,8 +407,9 @@ func _start_staging() -> void:
 	_por_rodas(car_sprite, rodas_player, player_car)
 	_por_rodas(rival_sprite, rodas_rival, rival_car)
 
-	matchup = "%s  %d cv   x   %s  %d cv" % [player_car, Cars.cavalos(player_car),
-		rival_car, Cars.cavalos(rival_car)]
+	matchup = "%s  %d cv   x   %s  %d cv          piso: %s" % [
+		player_car, Cars.cavalos(player_car), rival_car, Cars.cavalos(rival_car),
+		proximo_piso]
 
 
 func _start_race() -> void:
@@ -696,6 +713,11 @@ func _feed_hud(delta: float) -> void:
 				"pos": player.pos,
 				"dist": Tuning.RACE_DISTANCE,
 				"phase": _phase_name(),
+				"piso": proximo_piso,
+				"pneu_estourado": player.pneu_estourado,
+				"desg_turbo": player.desgaste_turbo,
+				"desg_pneu": player.desgaste_pneu,
+				"turbo_quebrado": player.turbo_quebrado,
 				"perfect_lo": Tuning.PERFECT.x,
 				"perfect_hi": Tuning.PERFECT.y,
 				"desg_motor": player.desgaste_motor,
@@ -719,7 +741,7 @@ func _feed_hud(delta: float) -> void:
 					% [Cars.cavalos(nome), Cars.tier(nome)], Cars.bandas(nome)])
 			d.merge({"opcoes": opcoes, "sel": menu_idx})
 		State.GARAGEM:
-			var pv: Dictionary = build.previa(Cars.bandas(player_car))
+			var pv: Dictionary = build.previa(Cars.bandas(player_car), proximo_piso)
 			var eq: Array = []
 			for slot in Peca.SLOTS:
 				if build.pecas.has(slot):
@@ -741,6 +763,12 @@ func _feed_hud(delta: float) -> void:
 					["C", "cambio", cc, garagem.dinheiro >= cc, garagem.cambio_quebrado],
 					["N", "nitro", cn, garagem.dinheiro >= cn, false],
 				],
+			})
+			d.merge({
+				"piso": proximo_piso,
+				"piso_desc": Piso.descricao(proximo_piso),
+				"pneu": pv.get("pneu", "misto"),
+				"aderencia": Peca.aderencia(pv.get("pneu", "misto"), proximo_piso),
 			})
 			d.merge({"equipadas": eq, "reserva": res, "aviso": garagem_aviso,
 				"bandas": pv.bandas, "heat_limit": pv.heat_limit, "janela": pv.janela,

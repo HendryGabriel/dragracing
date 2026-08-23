@@ -64,6 +64,19 @@ seria sempre melhor e escolher carro viraria escolher o caráter certo.
 
 No duelo a 300 cv, o torque abre 119m aos 17s e o turbo recupera 97% até a linha.
 
+## Piso e pneu (§5 do GDD)
+
+Quatro pisos — pista, cidade, deserto, lama — e cada um é um **perfil sobre as três fases
+mais o calor**, não um multiplicador global ([`piso.gd`](piso.gd)). Lama arrasa a largada,
+deserto encolhe a margem térmica, cidade pune as fases 2 e 3.
+
+O pneu é um **perfil espelhado** e só age na largada, que é onde ele decide. Não existe o
+melhor pneu: slick faz 96m aos 5s na pista e 28m na lama; cravado faz 76m e 64m.
+
+**O piso do próximo trecho é sorteado na garagem**, antes de você correr — é isso que faz
+escolher pneu ser decisão em vez de loteria. Na simulação, usar a reserva para trocar de
+pneu contra o piso levou a sequência de 16 para 26 corridas.
+
 ## Carros
 
 As carrocerias ficam em [`cars/`](cars/) — 25 fotos em 3/4 frontal, brancas (tingidas

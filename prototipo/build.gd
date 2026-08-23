@@ -47,7 +47,7 @@ func trocar_reserva(i: int) -> bool:
 	return true
 
 
-func aplicar(c: Car, bandas_base: Array) -> void:
+func aplicar(c: Car, bandas_base: Array, piso := "pista") -> void:
 	c.bands = bandas_base.duplicate()
 	c.gear_top = Tuning.GEAR_TOP.duplicate()
 	c.janela = Tuning.PERFECT
@@ -67,11 +67,25 @@ func aplicar(c: Car, bandas_base: Array) -> void:
 	c.heat_limit = clampf(c.heat_limit, 0.55, 1.05)
 	c.cool_rate = maxf(c.cool_rate, 0.05)
 	c.heat_rate = maxf(c.heat_rate, 0.06)
+	# Piso e pneu entram por ultimo: o piso e do trecho, nao da build, e o pneu so
+	# vale contra um piso concreto.
+	c.piso_fases = Piso.fases(piso)
+	c.heat_rate += Piso.calor(piso)
+	c.aderencia = Peca.aderencia(pneu_equipado(), piso)
 	c.nitro = c.nitro_cap
+
+
+## O tipo de pneu equipado, ou o misto de fabrica quando o slot esta vazio.
+func pneu_equipado() -> String:
+	if pecas.has("roda"):
+		return pecas["roda"].mods.get("pneu", "misto")
+	return "misto"
 
 
 func _aplicar(c: Car, mods: Dictionary) -> void:
 	for chave in mods:
+		if chave == "pneu":
+			continue   # o pneu nao e numero: entra em aplicar(), contra o piso
 		var v: float = mods[chave]
 		match chave:
 			"banda_baixa": c.bands[0] += v
@@ -106,9 +120,9 @@ func sortear_ofertas(rng: RandomNumberGenerator, n := 3) -> Array:
 
 ## Os numeros que a build produz, sem precisar de uma corrida. E o que torna a
 ## build VISIVEL: o jogador ve a forma do carro, nao so a lista de pecas.
-func previa(bandas_base: Array) -> Dictionary:
+func previa(bandas_base: Array, piso := "pista") -> Dictionary:
 	var c := Car.new()
-	aplicar(c, bandas_base)
+	aplicar(c, bandas_base, piso)
 	return {
 		"bandas": c.bands.duplicate(),
 		"heat_limit": c.heat_limit,
@@ -116,6 +130,7 @@ func previa(bandas_base: Array) -> Dictionary:
 		"janela": c.janela,
 		"nitro_cap": c.nitro_cap,
 		"gear_top": c.gear_top.duplicate(),
+		"pneu": pneu_equipado(),
 	}
 
 

@@ -352,11 +352,11 @@ mesmo motor base, pecas opostas: torque %+.0fm aos 5s | alta rotacao %+.0f km/h 
 		destinos.append(b.equipar_guardando(Peca.gerar("motor", Peca.MARCAS[i], 0)))
 	print("
 reserva ao trocar 4 motores seguidos: %s (teto %d)"
-		% [", ".join(destinos), Build.RESERVA_MAX])
+		% [", ".join(destinos), b.reserva_max])
 	if destinos[0] != "":
 		push_error("[7] Slot vazio nao devia mandar nada para a reserva")
 		fails += 1
-	if b.reserva.size() > Build.RESERVA_MAX:
+	if b.reserva.size() > b.reserva_max:
 		push_error("[7] Reserva estourou o teto: %d" % b.reserva.size())
 		fails += 1
 	if destinos[3] != "sucata":
@@ -492,6 +492,50 @@ mapa: reputacao de uma rota vai de %d a %d (meta %d)"
 		push_error("[11] Esticar o ato nao devolveu um trecho jogavel")
 		fails += 1
 	print("esticar: %d linhas viram %d, e o chefe continua no fim" % [linhas_antes, m.linhas.size()])
+
+	# ---------- checagem 12: meta-progressao ----------
+	# Roguelike onde derrota rende zero faz o jogador desistir na 4a run, entao o
+	# que se checa aqui e que PERDER tambem abre coisa, e que o save sobrevive.
+	var pr := Progresso.new()
+	pr.arquivo = "user://progresso_teste.json"
+	var iniciais := pr.liberados.size()
+	for nome in pr.liberados:
+		if Cars.tier(nome) > 1:
+			push_error("[12] Elenco inicial tem carro de tier %d: a escada nasce plana"
+				% Cars.tier(nome))
+			fails += 1
+			break
+	# Terminar uma run PERDENDO ja e um marco.
+	var abriu := pr.registrar("run")
+	print("
+meta: elenco comeca com %d carros; perder uma run abriu %d coisa(s)"
+		% [iniciais, abriu.size()])
+	if abriu.is_empty():
+		push_error("[12] Perder uma run nao rende nada")
+		fails += 1
+	# Marco nao pode pagar duas vezes.
+	if not pr.registrar("run").is_empty():
+		push_error("[12] O mesmo marco pagou duas vezes")
+		fails += 1
+	# Reserva tem teto.
+	for i in 30:
+		pr.registrar("fundir")
+		pr.marcar_recorde("ato", 3)
+		pr.marcar_recorde("corridas_run", 25)
+	if pr.reservas > Progresso.RESERVA_TETO:
+		push_error("[12] Reserva passou do teto: %d" % pr.reservas)
+		fails += 1
+	# Ida e volta pelo disco.
+	pr.salvar()
+	var pr2 := Progresso.new()
+	pr2.arquivo = pr.arquivo
+	pr2.carregar()
+	if pr2.liberados.size() != pr.liberados.size() or pr2.reservas != pr.reservas:
+		push_error("[12] O save nao volta igual: %d/%d carros, %d/%d reservas"
+			% [pr2.liberados.size(), pr.liberados.size(), pr2.reservas, pr.reservas])
+		fails += 1
+	print("meta: apos os marcos, %d carros e %d reservas; save volta igual"
+		% [pr.liberados.size(), pr.reservas])
 
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()

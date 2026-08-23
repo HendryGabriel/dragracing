@@ -177,7 +177,7 @@ vence mais que escolher os nós de maior recompensa.
 
 ---
 
-## Fase 4 — Save e meta-progressão
+## Fase 4 — Save e meta-progressão ✅ FEITA
 
 **GDD §7, mais o desbloqueio do §3.5 e a expansão do §3.6.**
 
@@ -191,6 +191,18 @@ Precisa da fase 3: sem run, não existe "fim de run" para render progresso.
 
 **Pronto quando:** fechar o jogo e reabrir mantém o que foi conquistado, e perder uma run
 ainda deixa alguma coisa para trás.
+
+**Resultado medido:** o elenco começa com os **6 carros de tier 1** — carro forte se
+conquista, não se escolhe na primeira tela. Nove marcos abrem carros e espaços de reserva
+(teto de 6). **Terminar uma run perdendo já é um marco**, e o mesmo marco nunca paga duas
+vezes. O save vai e volta do disco igual.
+
+Os marcos são registrados **na hora do evento**, não no fim da run: a run pode acabar de
+repente, e progresso perdido por timing seria a pior forma de "derrota não rende nada".
+
+Um defeito que a medição pegou: a checagem estava gravando no **save real do jogador** e
+destruiu progresso na primeira rodada. O arquivo virou variável de instância, e o teste
+escreve no próprio.
 
 ---
 

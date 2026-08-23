@@ -10,7 +10,9 @@ var pecas: Dictionary = {}   # slot -> Peca
 
 ## Reserva. O limite e o que faz a escolha doer: com espaco infinito voce nunca
 ## abre mao de nada, e escolher deixa de custar.
-const RESERVA_MAX := 2
+const RESERVA_INICIAL := 2
+## Cresce com os marcos da meta-progressao (GDD 3.6), ate o teto de 6.
+var reserva_max := RESERVA_INICIAL
 var reserva: Array = []
 
 
@@ -26,7 +28,7 @@ func equipar_guardando(p: Peca) -> String:
 	pecas[p.slot] = p
 	if antiga == null:
 		return ""
-	if reserva.size() < RESERVA_MAX:
+	if reserva.size() < reserva_max:
 		reserva.append(antiga)
 		return "reserva"
 	return "sucata"

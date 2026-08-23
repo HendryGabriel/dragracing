@@ -405,6 +405,11 @@ func _draw_menu(s: float) -> void:
 		else:
 			y += 34.0 * s
 
+	# O proximo marco: e o que da razao para jogar de novo depois de perder.
+	var marco: String = st.get("marco", "")
+	if not marco.is_empty():
+		_text(Vector2(lx, r.position.y + h - 50.0 * s), "a seguir: %s" % marco,
+			int(14 * s), AMBER, HORIZONTAL_ALIGNMENT_LEFT)
 	_text(Vector2(lx, r.position.y + h - 26.0 * s),
 		"setas escolhem   ·   ESPACO confirma", int(17 * s), DIM,
 		HORIZONTAL_ALIGNMENT_LEFT)

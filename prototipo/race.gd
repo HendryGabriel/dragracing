@@ -84,6 +84,7 @@ var menu_idx := 0
 var proximo_piso := "pista"
 var piso_rng := RandomNumberGenerator.new()
 var piso_pendente := true
+var progresso := Progresso.new()
 var mapa := Mapa.new()
 var sel_no := 0
 var no_tipo := "racha"      # tipo do no em que voce entrou
@@ -94,6 +95,7 @@ var ofertas_pagas := false  # oficina cobra; ferro-velho e de graca porem gasto
 ## pecas, escolha de pneu reserva e disciplina para nao forcar calor.
 var chefe_placar := [0, 0]
 var chefe_pisos: Array = []
+var novidade := ""   # ultimo desbloqueio, mostrado na garagem
 ## Onde ficam as caixas de roda em cada foto, medidas por
 ## ferramentas/detectar_rodas.py. Carro sem medida simplesmente corre sem roda.
 var rodas_anchors: Dictionary = {}
@@ -104,6 +106,7 @@ var rodas_rival: Array = []
 # ---------------------------------------------------------------- setup
 
 func _ready() -> void:
+	progresso.carregar()
 	var f := FileAccess.open("res://rodas.json", FileAccess.READ)
 	if f != null:
 		var lido = JSON.parse_string(f.get_as_text())
@@ -378,8 +381,14 @@ func _entrar_no(pos: int) -> void:
 ## Fim do confronto do chefe. Vencer fecha o ato; perder custa a reputacao
 ## acumulada e devolve voce ao mapa -- o no continua la, mas voce precisa correr
 ## mais nos para reabrir o desafio, e os nos sao finitos.
+func _novidades(lista: Array) -> void:
+	for n in lista:
+		novidade = n
+
+
 func _fechar_chefe() -> void:
 	if chefe_placar[0] >= 2:
+		_novidades(progresso.registrar("chefe"))
 		if mapa.ato + 1 >= Mapa.ATOS:
 			card_title = "RUN VENCIDA"
 			card_color = Hud.GREEN
@@ -388,9 +397,12 @@ func _fechar_chefe() -> void:
 				"~M comeca outra run   ·   ESC sai",
 			]
 			garagem.acabou = true
+			_novidades(progresso.registrar("run_vencida"))
+			_novidades(progresso.registrar("run"))
 			state = State.RESULT
 			return
 		mapa.gerar(mapa.ato + 1, garagem.corridas)
+		_novidades(progresso.marcar_recorde("ato", mapa.ato + 1))
 		_to_garagem("ato vencido; o proximo comeca agora")
 	else:
 		mapa.reputacao = 0
@@ -456,7 +468,8 @@ func _aviso_troca(destino: String) -> String:
 
 func _to_garagem(aviso: String) -> void:
 	state = State.GARAGEM
-	garagem_aviso = aviso
+	garagem_aviso = novidade if not novidade.is_empty() else aviso
+	novidade = ""
 	# O trecho seguinte so e sorteado uma vez; reentrar na garagem (trocar peca,
 	# consertar) nao pode re-sortear, senao o jogador escolhe pneu contra um piso
 	# que muda debaixo dele.
@@ -474,6 +487,7 @@ func _to_menu() -> void:
 	state = State.MENU
 	garagem = Garagem.new()
 	build = Build.new()
+	build.reserva_max = progresso.reservas
 	piso_rng.randomize()
 	mapa = Mapa.new()
 	mapa.rng.randomize()
@@ -484,8 +498,8 @@ func _to_menu() -> void:
 
 
 func _preview_menu() -> void:
-	var nomes := Cars.elenco()
-	menu_idx = wrapi(menu_idx, 0, nomes.size())
+	var nomes := progresso.liberados
+	menu_idx = wrapi(menu_idx, 0, maxi(nomes.size(), 1))
 	player_car = nomes[menu_idx]
 	car_sprite.texture = Cars.texture(player_car)
 	car_sprite.flip_h = Cars.flipped(player_car)
@@ -580,6 +594,15 @@ func _to_result() -> void:
 		mapa.premiar(no_tipo)
 	if no_tipo == "chefe":
 		chefe_placar[0 if venceu else 1] += 1
+	# Marcos sao registrados na hora: a run pode acabar de repente, e progresso
+	# perdido por timing seria a pior forma de "derrota nao rende nada".
+	if venceu and no_tipo == "marcado":
+		_novidades(progresso.registrar("marcado"))
+	if player.blown:
+		_novidades(progresso.registrar("fundir"))
+	_novidades(progresso.marcar_recorde("corridas_run", garagem.corridas))
+	if garagem.acabou:
+		_novidades(progresso.registrar("run"))
 
 	_card_padrao()
 	card_title = "VENCEU" if venceu else "DERROTA"
@@ -942,12 +965,13 @@ func _feed_hud(delta: float) -> void:
 				"meta_rep": Mapa.META_REPUTACAO, "ficha_no": ficha,
 			})
 		State.MENU:
-			var lista := Cars.elenco()
+			var lista: Array = progresso.liberados
 			var opcoes: Array = []
 			for nome in lista:
 				opcoes.append([nome, "%d cv   ·   tier %d"
 					% [Cars.cavalos(nome), Cars.tier(nome)], Cars.bandas(nome)])
-			d.merge({"opcoes": opcoes, "sel": menu_idx})
+			d.merge({"opcoes": opcoes, "sel": menu_idx,
+				"marco": progresso.proximo_marco()})
 		State.GARAGEM:
 			var pv: Dictionary = build.previa(Cars.bandas(player_car), proximo_piso)
 			var eq: Array = []

@@ -64,6 +64,27 @@ seria sempre melhor e escolher carro viraria escolher o caráter certo.
 
 No duelo a 300 cv, o torque abre 119m aos 17s e o turbo recupera 97% até a linha.
 
+## O mapa (§6 do GDD)
+
+A run tem **mapa ramificado**, três atos e sete tipos de nó ([`mapa.gd`](mapa.gd)). O que
+faz o mapa ser decisão e não menu: cada nó diz de antemão o **piso** e o **arquétipo do
+rival**, e nunca os números. Você escolhe qual confronto a sua build ganha melhor.
+
+Entrar num nó o consome, e ramo não percorrido não volta.
+
+O **chefe é trancado por reputação** (10; racha dá 2, rival marcado dá 5). A reputação de
+uma rota vai de 4 a 14 — a pior não destranca, a melhor destranca. Chegar na porta trancado
+não é beco sem saída: o ato **estica** num trecho novo só de confronto, que é o "farmar
+mais" do GDD.
+
+O chefe é **melhor de 3, em três pisos diferentes e sem garagem entre as corridas**.
+
+| Tecla | Ação (no mapa) |
+|---|---|
+| setas | escolher o nó |
+| `ESPAÇO` | entrar no nó |
+| `G` | abrir a garagem |
+
 ## Piso e pneu (§5 do GDD)
 
 Quatro pisos — pista, cidade, deserto, lama — e cada um é um **perfil sobre as três fases

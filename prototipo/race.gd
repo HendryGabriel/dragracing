@@ -361,7 +361,7 @@ func _start_staging() -> void:
 	player.label = "Voce"
 	player.rng.randomize()
 	build.aplicar(player, Cars.bandas(player_car))
-	garagem.aplicar(player)
+	garagem.aplicar(player)   # depois da build: o nitro guardado vence o tanque cheio
 
 	rival = Car.new()
 	rival.label = "Rival"
@@ -426,7 +426,7 @@ func won() -> bool:
 func _to_result() -> void:
 	state = State.RESULT
 	var venceu := won()
-	garagem.recolher(player, venceu)
+	garagem.recolher(player, venceu, player_car)
 
 	_card_padrao()
 	card_title = "VENCEU" if venceu else "DERROTA"
@@ -448,13 +448,18 @@ func _to_result() -> void:
 			Garagem.faixa(garagem.motor), garagem.motor * 100,
 			Garagem.faixa(garagem.transmissao), garagem.transmissao * 100],
 		"~trocas ruins %d   ·   calor maximo %.0f%%" % [player.bad_shifts, peak_heat * 100],
+		"aposta %s%d   ·   caixa %d" % ["+" if venceu else "-", garagem.aposta(),
+			garagem.dinheiro],
 	]
 
 	if garagem.acabou:
-		card_title = "FIM DA SEQUENCIA"
+		# Falencia, nao fusao: o motor quebrou e o orcamento passou do caixa.
+		card_title = "FALENCIA"
 		card_color = Hud.RED
 		card_lines = [
 			"o motor fundiu na corrida %d" % garagem.corridas,
+			"orcamento %d   ·   caixa %d" % [garagem.custo_motor(player_car),
+				garagem.dinheiro],
 			"%d vitorias em %d corridas" % [garagem.vitorias, garagem.corridas],
 			"~M comeca outra sequencia   ·   ESC sai",
 		]
@@ -503,8 +508,17 @@ func _input(event: InputEvent) -> void:
 					_set_flash("TROCA " + q.to_upper() if q != "boa" else "boa")
 		State.GARAGEM:
 			if k.pressed:
-				if k.keycode == KEY_SPACE:
+				if k.keycode == KEY_SPACE and not garagem.precisa_consertar():
 					_start_staging()
+				elif k.keycode == KEY_M:
+					_to_garagem("" if garagem.consertar_motor(player_car)
+						else "dinheiro nao chega para o motor")
+				elif k.keycode == KEY_C:
+					_to_garagem("" if garagem.consertar_cambio(player_car)
+						else "dinheiro nao chega para o cambio")
+				elif k.keycode == KEY_N:
+					_to_garagem("" if garagem.reabastecer(player.nitro_cap)
+						else "dinheiro nao chega para o nitro")
 				else:
 					var ri := [KEY_1, KEY_2].find(k.keycode)
 					if ri >= 0 and build.trocar_reserva(ri):
@@ -716,6 +730,18 @@ func _feed_hud(delta: float) -> void:
 			var res: Array = []
 			for p in build.reserva:
 				res.append(["%s %s" % [p.nome(), Peca.RARIDADES[p.raridade]], p.resumo()])
+			var cm := garagem.custo_motor(player_car)
+			var cc := garagem.custo_cambio(player_car)
+			var cn := garagem.custo_nitro(player.nitro_cap)
+			d.merge({
+				"dinheiro": garagem.dinheiro,
+				"precisa_consertar": garagem.precisa_consertar(),
+				"oficina": [
+					["M", "motor", cm, garagem.dinheiro >= cm, garagem.motor_quebrado],
+					["C", "cambio", cc, garagem.dinheiro >= cc, garagem.cambio_quebrado],
+					["N", "nitro", cn, garagem.dinheiro >= cn, false],
+				],
+			})
 			d.merge({"equipadas": eq, "reserva": res, "aviso": garagem_aviso,
 				"bandas": pv.bandas, "heat_limit": pv.heat_limit, "janela": pv.janela,
 				"nitro_cap": pv.nitro_cap})

@@ -74,13 +74,20 @@ func _duel(bands_a: Array, bands_b: Array) -> Dictionary:
 ## Simula uma sequencia inteira ate o motor fundir, num estilo de jogo.
 ## E aqui que o segundo pilar do GDD ("ganancia tem preco com memoria") vira
 ## numero: se o ganancioso durar o mesmo que o cauteloso, o sistema nao existe.
-func _carreira(estilo: String, seed_v: int, ref: float) -> Dictionary:
+func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
+	var carro: String = REFS["Equilibrado"]
 	var g := Garagem.new()
+	var b := Build.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_v * 31
+	var consertos := 0
 	while not g.acabou and g.corridas < 60:
 		var c := Car.new()
-		c.bands = Cars.bandas(REFS["Equilibrado"])
 		c.rng.seed = seed_v * 1000 + g.corridas
 		c.set_launch(0.70)
+		# A build do jogador cresce junto com o rival: sem isso a escada do rival
+		# atropela em cinco corridas e a sequencia nunca chega a lugar nenhum.
+		b.aplicar(c, Cars.bandas(carro))
 		g.aplicar(c)
 		var shift_at := 0.96
 		var hold := 0.0
@@ -94,22 +101,57 @@ func _carreira(estilo: String, seed_v: int, ref: float) -> Dictionary:
 				c.shift_up()
 			c.nitro_on = hold > 0.0 and c.nitro > 0.0 				and c.pos > Tuning.RACE_DISTANCE * 0.60 and c.heat < hold
 			c.step(DT)
-		g.recolher(c, c.finished_at > 0.0 and c.finished_at < ref)
+		# Rival de verdade, nao cronometro: mesmo carro, pericia imperfeita e nitro
+		# moderado. Sem isso a taxa de vitoria vira artefato da referencia escolhida
+		# e a economia nunca respira.
+		var riv := Car.new()
+		# O rival SOBE com a sequencia. Com rival parado, jogar seguro vence sempre e
+		# forcar nunca compensa -- a escada e o que obriga a arriscar mais tarde.
+		riv.bands = Cars.curva(238 + g.corridas * 3, "equilibrado")
+		riv.rng.seed = seed_v * 7919 + g.corridas
+		riv.set_launch(riv.rng.randf_range(0.58, 0.84))
+		var ponto := 0.96
+		while riv.finished_at < 0.0 and not riv.blown and riv.time < 120.0:
+			if riv.rpm() >= ponto:
+				riv.shift_up()
+				ponto = 0.96 + riv.rng.randf_range(-0.10, 0.05)
+			riv.nitro_on = riv.nitro > 0.0 				and riv.pos > Tuning.RACE_DISTANCE * Tuning.AI_NITRO_FROM 				and riv.heat < Tuning.AI_HEAT_TARGET
+			riv.step(DT)
+		var venceu := c.finished_at > 0.0 and (riv.finished_at <= 0.0
+			or c.finished_at <= riv.finished_at)
+		g.recolher(c, venceu, carro)
+		if venceu:
+			b.equipar_guardando(Peca.sortear(rng))
+
+		# A oficina do jogador razoavel: conserta o que trava primeiro, depois o
+		# que esta perto de quebrar, e so entao reabastece.
+		if g.motor_quebrado and g.consertar_motor(carro):
+			consertos += 1
+		elif g.motor > Tuning.FAIXA_CRITICA and g.consertar_motor(carro):
+			consertos += 1
+		if g.cambio_quebrado and g.consertar_cambio(carro):
+			consertos += 1
+		g.reabastecer(c.nitro_cap)
 	return {"corridas": g.corridas, "vitorias": g.vitorias, "motor": g.motor,
-		"cambio": g.transmissao}
+		"cambio": g.transmissao, "dinheiro": g.dinheiro, "consertos": consertos}
 
 
 func _media(estilo: String, ref: float) -> Dictionary:
 	var cs := 0.0
 	var vs := 0.0
 	var cambio := 0.0
+	var caixa := 0.0
+	var cons := 0.0
 	var n := 12
 	for i in n:
 		var r := _carreira(estilo, i + 1, ref)
 		cs += r.corridas
 		vs += r.vitorias
 		cambio += r.cambio
-	return {"corridas": cs / n, "vitorias": vs / n, "cambio": cambio / n}
+		caixa += r.dinheiro
+		cons += r.consertos
+	return {"corridas": cs / n, "vitorias": vs / n, "cambio": cambio / n,
+		"dinheiro": caixa / n, "consertos": cons / n}
 
 
 func _initialize() -> void:
@@ -210,16 +252,22 @@ func _initialize() -> void:
 	for estilo in ["cauteloso", "seletivo", "ganancioso", "desleixado"]:
 		var m := _media(estilo, ref)
 		est[estilo] = m
-		print("%-12s %5.1f corridas | %5.1f vitorias | cambio %.0f%%"
-			% [estilo, m.corridas, m.vitorias, m.cambio * 100])
+		print("%-12s %5.1f corridas | %5.1f vitorias | %4.1f consertos | caixa final %4.0f"
+			% [estilo, m.corridas, m.vitorias, m.consertos, m.dinheiro])
 
 	if est["ganancioso"].corridas >= est["cauteloso"].corridas * 0.75:
 		push_error("[5] Ganancia nao cobra: ganancioso dura %.1f e cauteloso %.1f"
 			% [est["ganancioso"].corridas, est["cauteloso"].corridas])
 		fails += 1
-	if est["ganancioso"].vitorias <= est["cauteloso"].vitorias:
-		push_error("[5] Ganancia nao paga: ganancioso vence %.1f e cauteloso %.1f"
-			% [est["ganancioso"].vitorias, est["cauteloso"].vitorias])
+	# Comparar vitorias ABSOLUTAS premia quem corre mais vezes. O que importa e a
+	# taxa: forcar tem que fazer voce ganhar mais das corridas que disputa.
+	var taxa_gan: float = est["ganancioso"].vitorias / maxf(est["ganancioso"].corridas, 1.0)
+	var taxa_cau: float = est["cauteloso"].vitorias / maxf(est["cauteloso"].corridas, 1.0)
+	print("taxa de vitoria: ganancioso %.0f%%   cauteloso %.0f%%"
+		% [taxa_gan * 100, taxa_cau * 100])
+	if taxa_gan <= taxa_cau:
+		push_error("[5] Ganancia nao paga: ganancioso vence %.0f%% e cauteloso %.0f%%"
+			% [taxa_gan * 100, taxa_cau * 100])
 		fails += 1
 	# O jeito de jogar que o GDD pressupoe -- forcar so nas corridas que importam --
 	# tem que aguentar uma run inteira (~25 corridas). Se nao aguentar, forcar nunca
@@ -228,9 +276,22 @@ func _initialize() -> void:
 		push_error("[5] Forcar seletivamente nao aguenta uma run: so %.1f corridas"
 			% est["seletivo"].corridas)
 		fails += 1
-	if est["desleixado"].cambio < 0.5:
-		push_error("[5] Errar troca nao gasta o cambio: so %.0f%%"
-			% (est["desleixado"].cambio * 100))
+	# A economia so existe se a oficina for usada. Quem visita a oficina e quem
+	# forca: o cauteloso nunca quebra nada, entao a checagem tem que olhar para o
+	# ganancioso, nao para a media.
+	if est["ganancioso"].consertos < 0.4:
+		push_error("[5] Nem o ganancioso conserta: a oficina nao entrou no loop")
+		fails += 1
+
+	# A troca economica da fase 1: forcar RENDE MAIS POR CORRIDA, jogar seguro DURA
+	# MAIS CORRIDAS. Comparar caixa final absoluto seria errado -- quem corre mais
+	# vezes acumula mais tempo, nao mais competencia.
+	var rende_gan: float = est["ganancioso"].dinheiro / maxf(est["ganancioso"].corridas, 1.0)
+	var rende_cau: float = est["cauteloso"].dinheiro / maxf(est["cauteloso"].corridas, 1.0)
+	print("caixa por corrida: ganancioso %.1f   cauteloso %.1f" % [rende_gan, rende_cau])
+	if rende_gan <= rende_cau:
+		push_error("[5] Forcar nao rende: ganancioso %.1f por corrida, cauteloso %.1f"
+			% [rende_gan, rende_cau])
 		fails += 1
 
 	# ---------- checagem 6: peca muda a FORMA da corrida ----------

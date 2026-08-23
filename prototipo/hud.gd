@@ -404,17 +404,61 @@ func _draw_menu(s: float) -> void:
 		HORIZONTAL_ALIGNMENT_LEFT)
 
 
+## A oficina. Cada linha mostra o que a peca custa AGORA -- orcamento, nao preco
+## de tabela. Motor fundido custa mais que o carro vale, e e esse numero que faz o
+## jogador decidir se afunda a grana ou aceita o fim da sequencia.
+func _draw_oficina(r: Rect2, s: float) -> void:
+	_panel(r, 10.0 * s, Color(INK, 0.55), Color(EDGE, 0.7))
+	_micro(Vector2(r.position.x + 44.0 * s, r.position.y + 14.0 * s),
+		"OFICINA", DIM, int(10 * s))
+
+	var itens: Array = st.get("oficina", [])
+	var col_w := r.size.x / maxf(float(itens.size()), 1.0)
+	for i in itens.size():
+		var tecla: String = itens[i][0]
+		var rotulo: String = itens[i][1]
+		var custo: int = itens[i][2]
+		var pode: bool = itens[i][3]
+		var urgente: bool = itens[i][4]
+		var cx := r.position.x + col_w * (i + 0.5)
+		var cy := r.position.y + 40.0 * s
+
+		var cor := DIM
+		if custo <= 0:
+			cor = DIM
+		elif urgente:
+			cor = RED
+		elif pode:
+			cor = TEXT
+		else:
+			cor = Color(RED, 0.55)   # existe orcamento, mas o caixa nao cobre
+
+		var txt := "%s  %s" % [tecla, rotulo]
+		if custo > 0:
+			txt += "   %d" % custo
+		else:
+			txt += "   ok"
+		_text(Vector2(cx, cy), txt, int(17 * s), cor)
+
+
 ## A garagem. Nao e uma lista de pecas: o que precisa ser lido aqui e a FORMA do
 ## carro -- tres barras de banda em que um motor de torque desenha uma escada
 ## descendo e um de alta rotacao a mesma escada subindo. A lista e o detalhe.
 func _draw_garagem(s: float) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.86))
 	var w := 960.0 * s
-	var h := 452.0 * s
+	var h := 546.0 * s
 	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5, w, h)
 	_panel(r, 22.0 * s, SURFACE, EDGE)
 
 	_text(Vector2(size.x * 0.5, r.position.y + 44.0 * s), "GARAGEM", int(32 * s), TEXT)
+	_text(Vector2(r.position.x + w - 46.0 * s, r.position.y + 44.0 * s),
+		"%d" % int(st.get("dinheiro", 0)), int(30 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_micro(Vector2(r.position.x + w - 46.0 * s - 74.0 * s, r.position.y + 44.0 * s),
+		"CAIXA", DIM, int(11 * s))
+
+	_draw_oficina(Rect2(r.position.x + 46.0 * s, r.position.y + h - 128.0 * s,
+		w - 92.0 * s, 62.0 * s), s)
 
 	# ---- coluna esquerda: os cinco slots ----
 	var lx := r.position.x + 46.0 * s
@@ -465,15 +509,18 @@ func _draw_garagem(s: float) -> void:
 			TEXT if cheia else DIM, HORIZONTAL_ALIGNMENT_LEFT)
 		by += 26.0 * s
 
-	# O aviso conta o que aconteceu com a peca substituida. Sem ele o jogador perde
+	# O aviso conta o que aconteceu com a peca substituida ou com o conserto. Sem ele o jogador perde
 	# uma peca para a sucata sem nunca ficar sabendo.
 	var aviso: String = st.get("aviso", "")
 	if not aviso.is_empty():
 		var cor := RED if aviso.contains("sucata") else AMBER
 		_text(Vector2(size.x * 0.5, r.position.y + h - 62.0 * s), aviso, int(17 * s), cor)
 
-	_text(Vector2(size.x * 0.5, r.position.y + h - 32.0 * s),
-		"1 / 2 troca com a reserva   ·   ESPACO corre", int(18 * s), DIM)
+	var travado: bool = bool(st.get("precisa_consertar", false))
+	_text(Vector2(size.x * 0.5, r.position.y + h - 30.0 * s),
+		"motor fundido: conserte para continuar" if travado
+			else "1 / 2 troca com a reserva   ·   ESPACO corre",
+		int(18 * s), RED if travado else DIM)
 
 
 ## Cartao de menu / resultado. Hierarquia por escala e cor, sem enfeite.

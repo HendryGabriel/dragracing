@@ -65,6 +65,36 @@ const TRANS_BREAK := 0.40            # chance de quebrar na troca ruim, x desgas
 const FAIXA_GASTA := 0.34
 const FAIXA_CRITICA := 0.70
 
+# ---------- Economia (GDD 4.4 e 6.4) ----------
+# Sem dinheiro nao existe conserto, e sem conserto o desgaste vira catraca de mao
+# unica. E o dinheiro que transforma "o carro quebrou" em decisao: a oficina da um
+# orcamento e voce escolhe se afunda a grana nele.
+const DINHEIRO_INICIAL := 260
+
+## Valor do carro, base do orcamento de conserto. Sai da potencia de fabrica.
+const VALOR_BASE := 180
+const VALOR_POR_CV := 2
+
+## Fracao do valor do carro que custa cada conserto.
+const CONSERTO_MOTOR := 0.55           # x desgaste, quando so gasto
+const CONSERTO_CAMBIO := 0.30
+## Peca QUEBRADA custa mais que gasta -- e motor fundido custa mais que o carro
+## inteiro vale. E esse numero que faz a decisao doer.
+const CONSERTO_MOTOR_QUEBRADO := 1.15
+const CONSERTO_CAMBIO_QUEBRADO := 0.45
+const CUSTO_NITRO_SEG := 6             # por segundo de tanque faltando
+
+## Aposta do racha. Cresce com a sequencia: perder tarde dói mais que perder cedo.
+const APOSTA_BASE := 70
+const APOSTA_POR_CORRIDA := 11
+
+## Premio, pago so na vitoria e por cima da aposta (GDD 6.2: o no de racha da
+## dinheiro, nao so a aposta de volta). Sem ele a aposta e um jogo de soma zero e
+## a sequencia morre de inanicao em meia duzia de corridas, sem nunca chegar perto
+## de uma quebra.
+const PREMIO_BASE := 45
+const PREMIO_POR_CORRIDA := 8
+
 # ---------- Rival ----------
 const AI_SHIFT_POINT := 0.95         # rpm alvo de troca
 const AI_HEAT_TARGET := 0.86         # ate onde a IA deixa esquentar

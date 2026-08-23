@@ -76,7 +76,7 @@ Piso ──────┘
 
 ---
 
-## Fase 1 — Economia e oficina
+## Fase 1 — Economia e oficina ✅ FEITA
 
 **GDD §4.4, base do §6.4.**
 
@@ -95,6 +95,25 @@ existe hoje.
 **Pronto quando:** perder drena o dinheiro que consertaria o carro; a espiral de morte
 existe e é legível; e o `sim_check` mostra que jogar seguro sobrevive mais tempo mas junta
 menos dinheiro que forçar.
+
+**Resultado medido** (média de 12 sequências):
+
+| estilo | corridas | taxa de vitória | consertos | caixa por corrida |
+|---|---|---|---|---|
+| cauteloso | 24,7 | 57% | 0,0 | 5,8 |
+| seletivo | 22,1 | 57% | 0,3 | 4,0 |
+| ganancioso | 17,2 | **63%** | 1,0 | **15,2** |
+| desleixado | **3,2** | 4% | 0,0 | 5,9 |
+
+Forçar rende 2,6× mais por corrida e vence mais; jogar seguro dura 40% mais corridas; errar
+troca leva à falência em três. A falência tem duas portas: motor fundido com orçamento
+acima do caixa, ou caixa que não cobre nem a aposta da próxima corrida.
+
+Duas coisas que a medição corrigiu no caminho:
+- **Dinheiro não tinha piso.** Quem perdia tudo continuava correndo com caixa zero, para
+  sempre. Não se aposta o que não se tem — sem caixa, não há racha.
+- **A aposta sozinha é soma zero** e matava a sequência de inanição em meia dúzia de
+  corridas. O nó de racha paga um **prêmio** por cima da aposta, como o §6.2 já previa.
 
 ---
 

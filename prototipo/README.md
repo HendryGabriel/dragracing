@@ -29,6 +29,7 @@ godot --path prototipo
 | `SHIFT` (segurar) | nitro — acelera e esquenta o motor |
 | `1` `2` `3` | escolher a peça na tela de recompensa |
 | `1` `2` | na garagem, trocar com a reserva |
+| `M` `C` `N` | na garagem, consertar motor / câmbio / reabastecer nitro |
 | `ESPAÇO` (na garagem) | ir para a próxima corrida |
 | `R` | continuar · `M` menu · `ESC` sair |
 
@@ -188,8 +189,13 @@ cobra na de depois. Motor gasta acima do limite térmico; câmbio gasta a cada t
 Nenhum dos dois perde desempenho ao gastar — o que sobe é a chance de estourar, e o dado só
 é rolado no momento do estresse. Quem joga limpo nunca quebra nada.
 
-Sem oficina ainda (depende de economia), então não há conserto: a sequência acaba quando o
-motor funde, e o placar é quantas corridas você venceu antes disso.
+**A oficina existe** (§4.4): entre corridas você conserta motor e câmbio e reabastece o
+nitro, tudo custando dinheiro. Todo racha tem **aposta** — ganhou leva mais o prêmio,
+perdeu paga — e a aposta cresce com a sequência.
+
+O fim é **falência**, não fusão, e ela tem duas portas: o motor fundiu e o orçamento passou
+do caixa, ou o caixa não cobre nem a aposta da próxima corrida. Motor fundido custa mais
+que o carro vale — é esse número que faz a decisão doer.
 
 `sim_check` simula sequências inteiras por estilo de jogo, que é como as constantes de
 desgaste foram calibradas:

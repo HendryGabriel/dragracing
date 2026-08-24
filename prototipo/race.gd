@@ -25,6 +25,9 @@ const CAM_DIST := 15.0
 const CAM_DIST_MAX := 46.0      # ate onde a camera recua
 const CAM_RIVAL_MARGIN := 9.0   # m que o rival mantem a frente da camera
 const MENU_CAM_DIST := 9.0      # vitrine: camera perto do carro
+## Na garagem a camera mira o proprio carro, sem deslocar o alvo -- entao ela
+## precisa vir mais perto para o carro ocupar o meio do quadro do mesmo jeito.
+const GARAGEM_CAM_DIST := 7.4
 ## Lente mais fechada so na vitrine. Os 78 graus da corrida sao grande-angular --
 ## bons para sensacao de velocidade, pessimos para retratar um carro parado.
 const MENU_FOV := 46.0
@@ -89,6 +92,17 @@ var mapa := Mapa.new()
 var sel_no := 0
 var no_tipo := "racha"      # tipo do no em que voce entrou
 var rival_forcado := ""     # o no manda o rival; vazio = sorteio livre
+## Passivo achado com os dois slots cheios: fica pendurado ate o jogador dizer
+## de qual abre mao. E a decisao que os dois slots existem para criar (GDD 3.3).
+var passivo_oferta: Passivo = null
+## Resultado da corrida em dados, nao em linhas de texto: a tela de fim de
+## corrida e um momento do jogo, e momento se compoe, nao se lista. Vazio = o
+## cartao generico assume (falencia, fim de run, aviso).
+var resultado: Dictionary = {}
+## A vitrine de pecas em dados. Mesma ideia do resultado: tela e composicao, nao
+## lista de linhas.
+var oferta_ui: Array = []
+var oferta_aviso := ""
 var ofertas_pagas := false  # oficina cobra; ferro-velho e de graca porem gasto
 ## Chefe: melhor de 3, em tres pisos diferentes e SEM reparo entre elas (GDD 6.5).
 ## E aqui que tudo que a run construiu e cobrado de uma vez -- build, estado das
@@ -96,6 +110,8 @@ var ofertas_pagas := false  # oficina cobra; ferro-velho e de graca porem gasto
 var chefe_placar := [0, 0]
 var chefe_pisos: Array = []
 var novidade := ""   # ultimo desbloqueio, mostrado na garagem
+## Escolhido antes da run e travado para ela inteira (GDD 2.4).
+var cambio_auto := false
 ## Onde ficam as caixas de roda em cada foto, medidas por
 ## ferramentas/detectar_rodas.py. Carro sem medida simplesmente corre sem roda.
 var rodas_anchors: Dictionary = {}
@@ -120,6 +136,14 @@ func _ready() -> void:
 	if "--autorace" in OS.get_cmdline_user_args():
 		auto = true
 		_shots = [1.5, 8.0, 20.0, 28.0]
+		# Os dois slots ja cheios: e assim que a garagem precisa caber na tela.
+		build.pegar_passivo(Passivo.por_id("nitro_frio"))
+		build.pegar_passivo(Passivo.por_id("coletor"))
+		# Baias cheias e vazias no mesmo print: e assim que o rack aperta.
+		build.equipar(Peca.gerar("motor", "Torque", 2))
+		build.equipar(Peca.gerar("turbo", "Alta Rotacao", 1))
+		build.equipar(Peca.gerar("roda", "Tracao", 0))
+		build.reserva.append(Peca.gerar("escape", "Quimica", 1))
 		# vitrine na Supra: e o carro em que o problema de roda apareceu
 		menu_idx = 11
 		_preview_menu()
@@ -292,6 +316,7 @@ func _build_hud() -> void:
 ## Layout do cartao. A tela de oferta precisa de colunas mais largas que o menu,
 ## entao cada tela declara o seu em vez de tudo caber num tamanho so.
 func _card_padrao() -> void:
+	resultado = {}
 	card_w = 606.0
 	card_table_w = 486.0
 	card_cols = [0.0, 34.0, 190.0, 344.0]
@@ -304,6 +329,7 @@ func _card_padrao() -> void:
 func _to_oferta() -> void:
 	state = State.OFERTA
 	ofertas = build.sortear_ofertas(player.rng, 3)
+	oferta_aviso = ""
 	# Colunas largas o bastante para o nome mais longo do catalogo. Coluna
 	# "equipada" saiu: quase sempre vazia no comeco e espremia as duas que importam.
 	card_w = 800.0
@@ -312,12 +338,28 @@ func _to_oferta() -> void:
 	card_head = ["", "peca", "efeito"]
 	card_cols_dim = []
 	card_title = "PECA CONQUISTADA"
+	if no_tipo == "oficina":
+		card_title = "OFICINA"
+	elif no_tipo == "ferro":
+		card_title = "FERRO-VELHO"
 	card_color = Hud.GREEN
 	card_table = []
+	# A vitrine em dados: preco junto, porque comprar sem ver o preco nao e
+	# decisao, e susto.
+	oferta_ui = []
 	for i in ofertas.size():
 		var p: Peca = ofertas[i]
 		card_table.append(["%d" % (i + 1),
 			"%s %s" % [p.nome(), Peca.RARIDADES[p.raridade]], p.resumo()])
+		var preco := _preco(p) if ofertas_pagas else 0
+		# O que sai do carro se esta entrar: escolher peca e sempre abrir mao de
+		# outra, e a tela tem que dizer de qual.
+		var no_lugar := ""
+		if build.pecas.has(p.slot):
+			var velha: Peca = build.pecas[p.slot]
+			no_lugar = "%s %s" % [velha.marca, Peca.RARIDADES[velha.raridade]]
+		oferta_ui.append([i + 1, p.slot, p.marca, p.raridade, p.resumo(), preco,
+			garagem.dinheiro >= preco, no_lugar])
 	var equipadas := PackedStringArray()
 	for linha in build.ficha():
 		if linha[1] != "-":
@@ -403,11 +445,26 @@ func _fechar_chefe() -> void:
 			return
 		mapa.gerar(mapa.ato + 1, garagem.corridas)
 		_novidades(progresso.marcar_recorde("ato", mapa.ato + 1))
-		_to_garagem("ato vencido; o proximo comeca agora")
+		# O chefe de ato sempre larga um passivo (GDD 3.3).
+		var achado := _achar_passivo(true)
+		_to_garagem("ato vencido; %s" % (achado if not achado.is_empty()
+			else "o proximo comeca agora"))
 	else:
 		mapa.reputacao = 0
 		mapa.linha_atual = mapa.linhas.size() - 2
 		_to_garagem("chefe venceu; a reputacao zerou e o desafio fechou")
+
+
+## Um passivo achado. Com espaco, entra direto; sem espaco, vira a pergunta
+## "qual dos dois?" na garagem.
+func _achar_passivo(garantido := false) -> String:
+	if not garantido and mapa.rng.randf() > 0.55:
+		return ""
+	var p := Passivo.sortear(mapa.rng)
+	if build.pegar_passivo(p):
+		return "achou %s: %s" % [p.nome, p.desc]
+	passivo_oferta = p
+	return "achou %s, mas os dois slots estao cheios" % p.nome
 
 
 func _boxes() -> void:
@@ -422,7 +479,8 @@ func _boxes() -> void:
 		garagem.cambio_quebrado = false
 		aviso = "boxes: cambio recuperado de graca"
 	garagem.nitro = Tuning.NITRO_CAPACITY
-	_to_garagem(aviso)
+	var achado := _achar_passivo()
+	_to_garagem(achado if not achado.is_empty() else aviso)
 
 
 ## Evento: texto e escolha com risco. Barato de produzir e e onde entra
@@ -431,7 +489,9 @@ func _evento() -> void:
 	var ganho := int(garagem.aposta() * 1.5)
 	if mapa.rng.randf() < 0.55:
 		garagem.dinheiro += ganho
-		_to_garagem("evento: racha clandestino rendeu %d" % ganho)
+		var achado := _achar_passivo()
+		_to_garagem("evento: racha clandestino rendeu %d%s"
+			% [ganho, "" if achado.is_empty() else "; " + achado])
 	else:
 		garagem.dinheiro = maxi(0, garagem.dinheiro - ganho / 2)
 		garagem.motor = minf(1.0, garagem.motor + 0.10)
@@ -456,6 +516,7 @@ func _preco(p: Peca) -> int:
 
 func _to_oferta_aviso(texto: String) -> void:
 	card_lines = ["~" + texto]
+	oferta_aviso = texto
 	state = State.OFERTA
 
 
@@ -468,6 +529,15 @@ func _aviso_troca(destino: String) -> String:
 
 func _to_garagem(aviso: String) -> void:
 	state = State.GARAGEM
+	# O carro volta a ser o carro, nao "o seu contra o do rival": sem tinta e sem
+	# adversario no quadro.
+	car_sprite.texture = Cars.texture(player_car)
+	car_sprite.flip_h = Cars.flipped(player_car)
+	car_sprite.modulate = Color(1, 1, 1)
+	car_sprite.position.z = 0.0
+	rival_sprite.visible = false
+	cam_dist = GARAGEM_CAM_DIST   # sem chegada suave: a garagem ja abre enquadrada
+	_por_rodas(car_sprite, rodas_player, player_car)
 	garagem_aviso = novidade if not novidade.is_empty() else aviso
 	novidade = ""
 	# O trecho seguinte so e sorteado uma vez; reentrar na garagem (trocar peca,
@@ -521,6 +591,7 @@ func _start_staging() -> void:
 	player.label = "Voce"
 	player.rng.randomize()
 	build.aplicar(player, Cars.bandas(player_car), proximo_piso)
+	player.cambio_auto = cambio_auto
 	garagem.aplicar(player)   # depois da build: o nitro guardado vence o tanque cheio
 
 	rival = Car.new()
@@ -617,6 +688,22 @@ func _to_result() -> void:
 		card_title = "MOTOR FUNDIDO"
 		card_color = Hud.RED
 
+	# A margem e a informacao que o jogador procura primeiro: por quanto foi.
+	var margem := 0.0
+	if player.finished_at > 0.0 and rival.finished_at > 0.0:
+		margem = absf(player.finished_at - rival.finished_at)
+	resultado = {
+		"veredito": card_title, "cor": card_color, "venceu": venceu,
+		"margem": margem,
+		"eu": [player_car, Cars.cavalos(player_car), player.finished_at],
+		"rival": [rival_car, Cars.cavalos(rival_car), rival.finished_at],
+		"motor": garagem.motor, "cambio": garagem.transmissao,
+		"fundiu": player.blown, "travou": player.travado,
+		"trocas_ruins": player.bad_shifts, "calor": peak_heat,
+		"aposta": garagem.aposta(), "caixa": garagem.dinheiro,
+		"corrida": garagem.corridas, "vitorias": garagem.vitorias,
+	}
+
 	card_table = []
 	card_lines = [
 		"%s  %d cv   %s" % [player_car, Cars.cavalos(player_car),
@@ -633,6 +720,7 @@ func _to_result() -> void:
 
 	if garagem.acabou:
 		# Falencia, nao fusao: o motor quebrou e o orcamento passou do caixa.
+		resultado = {}   # fim de sequencia e cartao, nao placar de corrida
 		card_title = "FALENCIA"
 		card_color = Hud.RED
 		card_lines = [
@@ -648,8 +736,14 @@ func _to_result() -> void:
 
 	if auto:
 		await _shot_named("resultado")
-		if won() and not garagem.acabou:
+		if garagem.acabou:
+			return
+		# Perder tambem tem que passar pela garagem: e la que a tela mais cresce,
+		# e print so de vitoria esconde o layout justamente quando ele aperta.
+		if won():
 			_to_oferta()
+		else:
+			_to_garagem("perdeu o racha; a sequencia continua")
 
 
 # ---------------------------------------------------------------- input
@@ -672,6 +766,8 @@ func _input(event: InputEvent) -> void:
 				elif k.keycode == KEY_UP or k.keycode == KEY_LEFT:
 					menu_idx -= 1
 					_preview_menu()
+				elif k.keycode == KEY_A:
+					cambio_auto = not cambio_auto
 				elif k.keycode == KEY_SPACE or k.keycode == KEY_ENTER:
 					_to_mapa()
 		State.STAGING:
@@ -712,6 +808,18 @@ func _input(event: InputEvent) -> void:
 				elif k.keycode == KEY_N:
 					_to_garagem("" if garagem.reabastecer(player.nitro_cap)
 						else "dinheiro nao chega para o nitro")
+				elif passivo_oferta != null:
+					# Enquanto o passivo estiver pendurado, 1 e 2 escolhem qual sai.
+					var pi := [KEY_1, KEY_2].find(k.keycode)
+					if pi >= 0:
+						var velho: Passivo = build.passivos[pi]
+						build.trocar_passivo(pi, passivo_oferta)
+						passivo_oferta = null
+						_to_garagem("%s ficou para tras" % velho.nome)
+					elif k.keycode == KEY_0:
+						var nome := passivo_oferta.nome
+						passivo_oferta = null
+						_to_garagem("%s ficou na rua" % nome)
 				else:
 					var ri := [KEY_1, KEY_2].find(k.keycode)
 					if ri >= 0 and build.trocar_reserva(ri):
@@ -805,7 +913,8 @@ func _screenshot() -> void:
 
 
 func _step_race(delta: float) -> void:
-	if auto and player.rpm() >= 0.96:
+	# Cambio automatico: o carro troca sozinho, sempre "boa" e nunca perfeita.
+	if (auto or player.cambio_auto) and player.rpm() >= Tuning.AI_SHIFT_POINT:
 		player.shift_up()
 	player.nitro_on = Input.is_physical_key_pressed(KEY_SHIFT) \
 		or (auto and player.pos > Tuning.RACE_DISTANCE * 0.6 and player.heat < 0.95)
@@ -837,6 +946,11 @@ func _drive_ai() -> void:
 
 
 func _update_cars() -> void:
+	# Fora da corrida o carro fica na vitrine, no z que a camera mira: seguir
+	# player.pos deixaria o carro parado la nos 1500 m, fora do quadro.
+	if state == State.MENU or state == State.GARAGEM:
+		car_sprite.position = Vector3(-LANE, CAR_Y, 0.0)
+		return
 	car_sprite.position = Vector3(-LANE, CAR_Y, player.pos)
 	rival_sprite.position = Vector3(LANE, CAR_Y, rival.pos)
 
@@ -867,10 +981,15 @@ func _update_camera(delta: float) -> void:
 	# Na vitrine a camera chega perto e mira ao lado do carro, para ele cair a
 	# direita do quadro e sobrar a esquerda para o painel. So distancia e alvo
 	# mudam -- a direcao continua a mesma, entao o sprite continua sem girar.
-	if state == State.MENU:
+	# A garagem usa a mesma vitrine do menu, so que centrada: la o painel ocupa a
+	# esquerda, aqui o carro e o meio da tela e o painel abre em volta.
+	if state == State.MENU or state == State.GARAGEM:
 		cam.fov = MENU_FOV
-		cam_dist = lerpf(cam_dist, MENU_CAM_DIST, 1.0 - exp(-6.0 * delta))
-		var alvo := Vector3(-LANE - MENU_DESLOC_X, CAR_Y * 0.95, 0.0)
+		var perto := MENU_CAM_DIST if state == State.MENU else GARAGEM_CAM_DIST
+		perto += sin(Time.get_ticks_msec() / 1000.0 * 0.9) * 0.16
+		cam_dist = lerpf(cam_dist, perto, 1.0 - exp(-6.0 * delta))
+		var desloc := MENU_DESLOC_X if state == State.MENU else 0.0
+		var alvo := Vector3(-LANE - desloc, CAR_Y * 0.95, 0.0)
 		cam.global_position = alvo + cam_dir() * cam_dist
 		cam.look_at(alvo)
 		return
@@ -971,16 +1090,16 @@ func _feed_hud(delta: float) -> void:
 				opcoes.append([nome, "%d cv   ·   tier %d"
 					% [Cars.cavalos(nome), Cars.tier(nome)], Cars.bandas(nome)])
 			d.merge({"opcoes": opcoes, "sel": menu_idx,
-				"marco": progresso.proximo_marco()})
+				"marco": progresso.proximo_marco(), "cambio_auto": cambio_auto})
 		State.GARAGEM:
 			var pv: Dictionary = build.previa(Cars.bandas(player_car), proximo_piso)
 			var eq: Array = []
 			for slot in Peca.SLOTS:
 				if build.pecas.has(slot):
 					var p: Peca = build.pecas[slot]
-					eq.append([slot, "%s %s" % [p.marca, Peca.RARIDADES[p.raridade]], p.resumo()])
+					eq.append([slot, p.marca, p.raridade, p.resumo()])
 				else:
-					eq.append([slot, "-", ""])
+					eq.append([slot, "", 0, ""])
 			var res: Array = []
 			for p in build.reserva:
 				res.append(["%s %s" % [p.nome(), Peca.RARIDADES[p.raridade]], p.resumo()])
@@ -990,22 +1109,49 @@ func _feed_hud(delta: float) -> void:
 			d.merge({
 				"dinheiro": garagem.dinheiro,
 				"precisa_consertar": garagem.precisa_consertar(),
+				# Cada tecla leva junto o desgaste da peca que ela conserta: o preco
+				# sozinho nao decide nada, o estado decide.
 				"oficina": [
-					["M", "motor", cm, garagem.dinheiro >= cm, garagem.motor_quebrado],
-					["C", "cambio", cc, garagem.dinheiro >= cc, garagem.cambio_quebrado],
-					["N", "nitro", cn, garagem.dinheiro >= cn, false],
+					["M", "motor", cm, garagem.dinheiro >= cm, garagem.motor_quebrado,
+						garagem.motor],
+					["C", "cambio", cc, garagem.dinheiro >= cc, garagem.cambio_quebrado,
+						garagem.transmissao],
+					["N", "nitro", cn, garagem.dinheiro >= cn, false,
+						garagem.nitro / maxf(player.nitro_cap, 0.001)],
 				],
+				"carro": player_car,
+				"ficha": "%d cv   ·   %s   ·   cambio %s" % [Cars.cavalos(player_car),
+					Cars.ROSTER[player_car].carater,
+					"automatico" if cambio_auto else "manual"],
 			})
 			d.merge({
 				"piso": proximo_piso,
 				"piso_desc": Piso.descricao(proximo_piso),
 				"pneu": pv.get("pneu", "misto"),
+				"conjunto": pv.get("conjunto", ""),
+				"formato": pv.get("formato", "longo"),
 				"aderencia": Peca.aderencia(pv.get("pneu", "misto"), proximo_piso),
 			})
+			var pas: Array = []
+			for p in build.passivos:
+				pas.append([p.nome, p.desc, p.raro])
+			d.merge({"passivos": pas, "passivo_oferta": [] if passivo_oferta == null
+				else [passivo_oferta.nome, passivo_oferta.desc, passivo_oferta.raro]})
 			d.merge({"equipadas": eq, "reserva": res, "aviso": garagem_aviso,
 				"bandas": pv.bandas, "heat_limit": pv.heat_limit, "janela": pv.janela,
 				"nitro_cap": pv.nitro_cap})
+		State.OFERTA:
+			var eqp := PackedStringArray()
+			for linha in build.ficha():
+				if linha[1] != "-":
+					eqp.append("%s %s" % [linha[0], linha[1]])
+			d.merge({"oferta": oferta_ui, "titulo": card_title,
+				"paga": ofertas_pagas, "ferro": no_tipo == "ferro",
+				"dinheiro": garagem.dinheiro, "oferta_aviso": oferta_aviso,
+				"equipado": "nada ainda" if eqp.is_empty()
+					else "   ·   ".join(eqp)})
 		_:
+			d.merge({"resultado": resultado})
 			d.merge({"title": card_title, "title_color": card_color,
 				"lines": card_lines, "table": card_table, "card_w": card_w,
 				"table_w": card_table_w, "cols": card_cols, "head": card_head, "cols_dim": card_cols_dim})

@@ -86,13 +86,37 @@ func _text(center: Vector2, s: String, size_px: int, col: Color,
 
 ## Rotulo de mostrador: caixa alta espacada, pequena. Tratamento reservado SO
 ## para rotulo de instrumento -- o resto do painel usa caixa normal.
-func _micro(center: Vector2, s: String, col: Color, size_px: int) -> void:
+func _micro(center: Vector2, s: String, col: Color, size_px: int,
+		halign := HORIZONTAL_ALIGNMENT_CENTER) -> void:
 	var spaced := ""
 	for i in s.length():
 		spaced += s[i]
 		if i < s.length() - 1:
 			spaced += " "
-	_text(center, spaced, size_px, col)
+	_text(center, spaced, size_px, col, halign)
+
+
+## Degrade chapado, sem contorno: e assim que a luz cai sobre a cena. Faixa de
+## cor com borda dura viraria emenda visivel; aqui uma ponta some na outra.
+func _fade(r: Rect2, de: Color, ate: Color, horizontal := false) -> void:
+	var pts := PackedVector2Array([r.position, r.position + Vector2(r.size.x, 0.0),
+		r.position + r.size, r.position + Vector2(0.0, r.size.y)])
+	var cols: PackedColorArray
+	if horizontal:
+		cols = PackedColorArray([de, ate, ate, de])
+	else:
+		cols = PackedColorArray([de, de, ate, ate])
+	draw_polygon(pts, cols)
+
+
+## Tecla fisica. Nao e enfeite de icone: e o desenho do que se aperta, e por isso
+## carrega o chanfro do resto do painel.
+func _keycap(r: Rect2, texto: String, col: Color, size_px: int) -> void:
+	draw_colored_polygon(_cham(r, r.size.y * 0.26), Color(col.r, col.g, col.b, 0.10))
+	var loop := _cham(r, r.size.y * 0.26)
+	loop.append(loop[0])
+	draw_polyline(loop, Color(col.r, col.g, col.b, 0.75), 1.4, true)
+	_text(r.position + r.size * 0.5, texto, size_px, col)
 
 
 ## A lampada da arvore. Apagada e um anel; acesa e um disco com o anel por cima.
@@ -127,6 +151,13 @@ func _draw() -> void:
 			_draw_menu(s)
 		6:  # MAPA
 			_draw_mapa(s)
+		4:  # OFERTA
+			_draw_oferta(s)
+		3:  # RESULT -- placar de corrida; fim de sequencia continua sendo cartao
+			if not Dictionary(st.get("resultado", {})).is_empty():
+				_draw_resultado(s)
+			else:
+				_draw_card(s)
 		_:
 			_draw_card(s)
 
@@ -290,7 +321,9 @@ func _draw_gap(s: float) -> void:
 ## A arvore de largada, a assinatura do painel: as tres ambares sobem com o giro
 ## e a verde acende dentro da janela -- solte nela.
 func _draw_tree(s: float) -> void:
-	var cx := size.x * 0.5
+	# A arvore fica AO LADO da pista, como na largada de verdade -- no meio da
+	# tela ela tapava justamente o carro que voce esta prestes a largar.
+	var cx := size.x * 0.24
 	var w := 96.0 * s
 	var h := 292.0 * s
 	var r := Rect2(cx - w * 0.5, size.y * 0.44 - h * 0.5, w, h)
@@ -323,7 +356,7 @@ func _draw_tree(s: float) -> void:
 		dica = "PASSOU DO PONTO"
 		dcol = RED
 	_text(Vector2(cx, r.position.y + h + 34.0 * s), dica, int(24 * s), dcol)
-	_text(Vector2(cx, r.position.y + h + 64.0 * s), st.matchup, int(18 * s), DIM)
+	_text(Vector2(size.x * 0.5, size.y - 56.0 * s), st.matchup, int(18 * s), DIM)
 
 
 func _draw_flash(s: float) -> void:
@@ -359,20 +392,25 @@ func _barras_banda(x: float, y: float, w: float, bandas: Array, s: float,
 	return y
 
 
-## Vitrine de escolha de carro. O carro esta na CENA, atras deste painel -- e por
-## isso que aqui nao ha escurecimento de tela cheia: escurecer tudo esconderia
-## justamente o que o jogador esta escolhendo.
+## Vitrine de escolha de carro. Mesma moldura da garagem: o carro esta na CENA,
+## a luz cai das bordas para ele, e o painel nao e caixa nenhuma -- e a coluna de
+## texto que sobra na sombra da esquerda.
 ##
-## O elenco tem 25 carros, entao a lista corre numa janela em volta do escolhido:
-## mostrar os 25 de uma vez daria uma parede de nomes em corpo minusculo.
+## O elenco tem 25 carros, entao a lista corre numa janela em volta do escolhido.
+## A janela e de altura FIXA e a ficha do carro mora sempre no mesmo lugar: lista
+## que cresce embaixo do item selecionado empurra o resto da tela a cada seta.
 func _draw_menu(s: float) -> void:
-	var w := 470.0 * s
-	var h := 462.0 * s
-	var r := Rect2(64.0 * s, size.y * 0.5 - h * 0.5 + 18.0 * s, w, h)
-	_panel(r, 20.0 * s, Color(INK, 1.0), EDGE)  # opaco: poste atras vazava
+	var W := size.x
+	var H := size.y
+	var mx := 56.0 * s
+	var ink0 := Color(INK.r, INK.g, INK.b, 0.0)
+	_fade(Rect2(0.0, 0.0, W, 210.0 * s), Color(INK.r, INK.g, INK.b, 0.92), ink0)
+	_fade(Rect2(0.0, H - 300.0 * s, W, 300.0 * s), ink0,
+		Color(INK.r, INK.g, INK.b, 0.92))
+	_fade(Rect2(0.0, 0.0, 560.0 * s, H), Color(INK.r, INK.g, INK.b, 0.90), ink0, true)
 
-	_text(Vector2(r.position.x + 30.0 * s, r.position.y - 42.0 * s), "ARRANCADA",
-		int(44 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx, 76.0 * s), "ARRANCADA", int(46 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT)
 
 	var opcoes: Array = st.get("opcoes", [])
 	var sel: int = int(st.get("sel", 0))
@@ -381,75 +419,48 @@ func _draw_menu(s: float) -> void:
 	var ini: int = clampi(sel - janela / 2, 0, maxi(0, n - janela))
 	var fim: int = mini(n, ini + janela)
 
-	var lx := r.position.x + 32.0 * s
-	_micro(Vector2(lx + 44.0 * s, r.position.y + 34.0 * s), "ELENCO", DIM, int(11 * s))
-	_text(Vector2(r.position.x + w - 32.0 * s, r.position.y + 34.0 * s),
-		"%d de %d" % [sel + 1, n], int(14 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	_micro(Vector2(mx, 120.0 * s), "ELENCO", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx + 128.0 * s, 120.0 * s), "%d de %d" % [sel + 1, n], int(13 * s),
+		DIM, HORIZONTAL_ALIGNMENT_LEFT)
 
-	var y := r.position.y + 68.0 * s
+	var y := 162.0 * s
 	for i in range(ini, fim):
 		var nome: String = opcoes[i][0]
-		var ficha: String = opcoes[i][1]
-		var bandas: Array = opcoes[i][2]
 		var ativo := i == sel
-
-		_lamp(Vector2(lx, y), 7.0 * s, AMBER if ativo else DIM, ativo)
-		_text(Vector2(lx + 22.0 * s, y), nome, int(23 * s if ativo else 19 * s),
+		_lamp(Vector2(mx + 7.0 * s, y), 6.0 * s, AMBER if ativo else DIM, ativo)
+		_text(Vector2(mx + 26.0 * s, y), nome, int(22 * s if ativo else 18 * s),
 			TEXT if ativo else DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		if ativo:
-			_text(Vector2(lx + 22.0 * s, y + 21.0 * s), ficha, int(15 * s), DIM,
-				HORIZONTAL_ALIGNMENT_LEFT)
-			_barras_banda(lx + 22.0 * s, y + 50.0 * s, 150.0 * s, bandas, s,
-				11.0, 23.0, 14)
-			y += 126.0 * s
-		else:
-			y += 34.0 * s
+		y += 32.0 * s
+
+	# A ficha do escolhido, sempre na mesma linha da tela.
+	if sel < n:
+		_text(Vector2(mx, 420.0 * s), opcoes[sel][1], int(16 * s), DIM,
+			HORIZONTAL_ALIGNMENT_LEFT)
+		_barras_banda(mx, 452.0 * s, 168.0 * s, opcoes[sel][2], s, 13.0, 26.0, 15)
+
+	# Cambio: travado para a run inteira, entao a escolha vive aqui, e a tecla que
+	# a troca aparece como tecla.
+	var auto_c := bool(st.get("cambio_auto", false))
+	_keycap(Rect2(mx, 550.0 * s, 26.0 * s, 26.0 * s), "A",
+		COLD if auto_c else TEXT, int(15 * s))
+	_text(Vector2(mx + 38.0 * s, 563.0 * s),
+		"cambio %s" % ("automatico" if auto_c else "manual"), int(17 * s),
+		COLD if auto_c else TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 
 	# O proximo marco: e o que da razao para jogar de novo depois de perder.
 	var marco: String = st.get("marco", "")
 	if not marco.is_empty():
-		_text(Vector2(lx, r.position.y + h - 50.0 * s), "a seguir: %s" % marco,
-			int(14 * s), AMBER, HORIZONTAL_ALIGNMENT_LEFT)
-	_text(Vector2(lx, r.position.y + h - 26.0 * s),
-		"setas escolhem   ·   ESPACO confirma", int(17 * s), DIM,
+		_text(Vector2(mx, 600.0 * s), "a seguir: %s" % marco, int(14 * s), AMBER,
+			HORIZONTAL_ALIGNMENT_LEFT)
+
+	_keycap(Rect2(mx, 628.0 * s, 60.0 * s, 26.0 * s), "SETAS", DIM, int(12 * s))
+	_text(Vector2(mx + 72.0 * s, 641.0 * s), "escolhem", int(15 * s), DIM,
 		HORIZONTAL_ALIGNMENT_LEFT)
-
-
-## A oficina. Cada linha mostra o que a peca custa AGORA -- orcamento, nao preco
-## de tabela. Motor fundido custa mais que o carro vale, e e esse numero que faz o
-## jogador decidir se afunda a grana ou aceita o fim da sequencia.
-func _draw_oficina(r: Rect2, s: float) -> void:
-	_panel(r, 10.0 * s, Color(INK, 0.55), Color(EDGE, 0.7))
-	_micro(Vector2(r.position.x + 44.0 * s, r.position.y + 14.0 * s),
-		"OFICINA", DIM, int(10 * s))
-
-	var itens: Array = st.get("oficina", [])
-	var col_w := r.size.x / maxf(float(itens.size()), 1.0)
-	for i in itens.size():
-		var tecla: String = itens[i][0]
-		var rotulo: String = itens[i][1]
-		var custo: int = itens[i][2]
-		var pode: bool = itens[i][3]
-		var urgente: bool = itens[i][4]
-		var cx := r.position.x + col_w * (i + 0.5)
-		var cy := r.position.y + 40.0 * s
-
-		var cor := DIM
-		if custo <= 0:
-			cor = DIM
-		elif urgente:
-			cor = RED
-		elif pode:
-			cor = TEXT
-		else:
-			cor = Color(RED, 0.55)   # existe orcamento, mas o caixa nao cobre
-
-		var txt := "%s  %s" % [tecla, rotulo]
-		if custo > 0:
-			txt += "   %d" % custo
-		else:
-			txt += "   ok"
-		_text(Vector2(cx, cy), txt, int(17 * s), cor)
+	_keycap(Rect2(mx + 168.0 * s, 628.0 * s, 80.0 * s, 26.0 * s), "ESPACO", TEXT,
+		int(12 * s))
+	_text(Vector2(mx + 260.0 * s, 641.0 * s), "correr", int(15 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT)
 
 
 ## Simbolo de cada tipo de no. Letra, nao icone: sao sete tipos e um alfabeto de
@@ -467,29 +478,38 @@ const ROTULO_NO := {
 ## O mapa da run. Cada coluna e uma linha do mapa, da largada (esquerda) ao chefe
 ## (direita). O que esta em jogo aqui nao e "qual recompensa e maior", e "qual
 ## confronto a minha build ganha melhor" -- por isso o no diz piso e rival antes.
+##
+## Sem caixa: a rota ocupa a tela inteira, do jeito que mapa de rua ocupa. Ficha
+## do no na esquerda, teclas na direita -- a mesma divisao da garagem, para a mao
+## do jogador nao precisar reaprender onde as coisas ficam.
 func _draw_mapa(s: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.88))
-	var w := 1130.0 * s
-	var h := 470.0 * s
-	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5 - 12.0 * s, w, h)
-	_panel(r, 22.0 * s, SURFACE, EDGE)
+	var W := size.x
+	var H := size.y
+	var mx := 56.0 * s
+	draw_rect(Rect2(Vector2.ZERO, size), Color(INK.r, INK.g, INK.b, 0.91))
+	var ink0 := Color(INK.r, INK.g, INK.b, 0.0)
+	_fade(Rect2(0.0, 0.0, W, 190.0 * s), Color(INK.r, INK.g, INK.b, 0.70), ink0)
+	_fade(Rect2(0.0, H - 260.0 * s, W, 260.0 * s), ink0,
+		Color(INK.r, INK.g, INK.b, 0.80))
 
-	_text(Vector2(r.position.x + 34.0 * s, r.position.y + 40.0 * s),
-		"ATO %d" % int(st.get("ato", 1)), int(30 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx, 66.0 * s), "ATO %d" % int(st.get("ato", 1)), int(38 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_LEFT)
 
 	# Reputacao: a trava do chefe, e a razao de o rival marcado existir.
 	var rep: int = int(st.get("reputacao", 0))
 	var meta: int = int(st.get("meta_rep", 12))
-	var bx := r.position.x + w - 300.0 * s
-	_micro(Vector2(bx - 46.0 * s, r.position.y + 40.0 * s), "REPUTACAO", DIM, int(10 * s))
-	var br := Rect2(bx, r.position.y + 33.0 * s, 190.0 * s, 13.0 * s)
-	draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.40))
 	var f: float = clampf(float(rep) / maxf(float(meta), 1.0), 0.0, 1.0)
+	var num := "%d/%d" % [rep, meta]
+	var num_w := font.get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * s)).x
+	_text(Vector2(W - mx, 66.0 * s), num, int(20 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	var br := Rect2(W - mx - num_w - 216.0 * s, 59.0 * s, 200.0 * s, 12.0 * s)
+	draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.45))
 	if f > 0.001:
 		draw_colored_polygon(_cham(Rect2(br.position,
-			Vector2(190.0 * s * f, 13.0 * s)), 4.0 * s), GREEN if f >= 1.0 else AMBER)
-	_text(Vector2(r.position.x + w - 34.0 * s, r.position.y + 40.0 * s),
-		"%d/%d" % [rep, meta], int(17 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+			Vector2(br.size.x * f, br.size.y)), 4.0 * s), GREEN if f >= 1.0 else AMBER)
+	_micro(Vector2(br.position.x - 16.0 * s, 66.0 * s), "REPUTACAO", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_RIGHT)
 
 	var linhas: Array = st.get("linhas", [])
 	var alc: Array = st.get("alcancaveis", [])
@@ -498,10 +518,12 @@ func _draw_mapa(s: float) -> void:
 	var lin_at: int = int(st.get("linha_atual", -1))
 	var idx_at: int = int(st.get("idx_atual", -1))
 
-	var col_w := (w - 120.0 * s) / maxf(float(linhas.size()), 1.0)
-	var x0 := r.position.x + 76.0 * s
-	var cy := r.position.y + 200.0 * s
-	var passo := 62.0 * s
+	# A ultima coluna cai exatamente na margem direita: rota que sobra espaco de
+	# um lado so parece torta.
+	var x0 := mx + 34.0 * s
+	var col_w := (W - 2.0 * (mx + 34.0 * s)) / maxf(float(linhas.size() - 1), 1.0)
+	var cy := H * 0.44
+	var passo := 66.0 * s
 
 	# Ligacoes primeiro, para os nos ficarem por cima delas.
 	var ligs: Array = st.get("ligacoes", [])
@@ -512,7 +534,8 @@ func _draw_mapa(s: float) -> void:
 		var by2 := cy + (int(e[3]) - (int(e[4]) - 1) * 0.5) * passo
 		var viva: bool = bool(e[5])
 		draw_line(Vector2(ax, ay), Vector2(bx2, by2),
-			Color(AMBER, 0.55) if viva else Color(EDGE, 0.55), 2.0 if viva else 1.0, true)
+			Color(AMBER, 0.55) if viva else Color(EDGE, 0.50),
+			2.0 if viva else 1.0, true)
 
 	for l in linhas.size():
 		var col: Array = linhas[l]
@@ -532,90 +555,135 @@ func _draw_mapa(s: float) -> void:
 			if eh_atual:
 				cor = TEXT
 
-			var raio := (17.0 if eh_sel else 13.0) * s
+			var raio := (18.0 if eh_sel else 14.0) * s
 			_lamp(Vector2(cx, y), raio, cor, eh_alvo or eh_atual or bool(no.visitado))
 			_text(Vector2(cx, y), SIMBOLO.get(no.tipo, "?"), int(15 * s),
 				INK if (eh_alvo or eh_atual) else DIM)
 			if eh_sel:
-				draw_arc(Vector2(cx, y), raio + 7.0 * s, 0, TAU, 40, TEXT, 2.0, true)
+				draw_arc(Vector2(cx, y), raio + 8.0 * s, 0, TAU, 40, TEXT, 2.0, true)
 
-	# Ficha do no escolhido: piso e rival, nunca os numeros.
+	# Ficha do no escolhido: piso e rival, nunca os numeros. Fica na esquerda, na
+	# mesma coluna do titulo -- e a continuacao da leitura, nao um rodape.
 	var ficha: Array = st.get("ficha_no", [])
-	var fy := r.position.y + h - 132.0 * s
-	for linha_txt in ficha:
-		var txt: String = linha_txt
+	var fy := H - 168.0 * s
+	for k in ficha.size():
+		var txt: String = ficha[k]
 		var cor2 := TEXT
+		var corpo := 24
 		if txt.begins_with("~"):
 			txt = txt.substr(1)
 			cor2 = DIM
-		_text(Vector2(size.x * 0.5, fy), txt, int(19 * s), cor2)
-		fy += 26.0 * s
+			corpo = 16
+		_text(Vector2(mx, fy), txt, int(corpo * s), cor2, HORIZONTAL_ALIGNMENT_LEFT)
+		fy += 28.0 * s
 
-	_text(Vector2(size.x * 0.5, r.position.y + h - 26.0 * s),
-		"setas escolhem   ·   ESPACO entra no no   ·   G garagem", int(17 * s), DIM)
+	# Teclas na direita, na mesma altura da ficha.
+	var ky := H - 96.0 * s
+	var kx := W - mx
+	_text(Vector2(kx, ky), "garagem", int(15 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	_keycap(Rect2(kx - 96.0 * s, ky - 13.0 * s, 26.0 * s, 26.0 * s), "G", DIM,
+		int(14 * s))
+	_text(Vector2(kx - 116.0 * s, ky), "entra", int(15 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	_keycap(Rect2(kx - 282.0 * s, ky - 13.0 * s, 80.0 * s, 26.0 * s), "ESPACO", TEXT,
+		int(12 * s))
+	_text(Vector2(kx - 302.0 * s, ky), "escolhem", int(15 * s), DIM,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	_keycap(Rect2(kx - 442.0 * s, ky - 13.0 * s, 60.0 * s, 26.0 * s), "SETAS", DIM,
+		int(12 * s))
 
 
-## A garagem. Nao e uma lista de pecas: o que precisa ser lido aqui e a FORMA do
-## carro -- tres barras de banda em que um motor de torque desenha uma escada
-## descendo e um de alta rotacao a mesma escada subindo. A lista e o detalhe.
+## A garagem. E TELA DE JOGO, nao formulario: o carro fica no meio do quadro,
+## aceso, e o painel se abre em volta dele -- instrumento a esquerda, destino a
+## direita, e as sete baias de peca numa bandeja embaixo, como o rack de
+## ferramenta que fica na parede de qualquer oficina.
+##
+## A luz cai das bordas para o centro. As bordas escurecem em degrade, nunca em
+## faixa com borda: o carro e a coisa mais clara da tela porque a run inteira
+## gira em volta dele, e nenhum painel tapa isso.
 func _draw_garagem(s: float) -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.026, 0.022, 0.86))
-	var w := 960.0 * s
-	# Sete slots a esquerda e forma + trecho + reserva a direita: o painel cresceu
-	# junto com o carro.
-	var h := 620.0 * s
-	var r := Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 - h * 0.5, w, h)
-	_panel(r, 22.0 * s, SURFACE, EDGE)
+	var W := size.x
+	var H := size.y
+	var mx := 56.0 * s
 
-	_text(Vector2(size.x * 0.5, r.position.y + 44.0 * s), "GARAGEM", int(32 * s), TEXT)
-	_text(Vector2(r.position.x + w - 46.0 * s, r.position.y + 44.0 * s),
-		"%d" % int(st.get("dinheiro", 0)), int(30 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
-	_micro(Vector2(r.position.x + w - 46.0 * s - 74.0 * s, r.position.y + 44.0 * s),
-		"CAIXA", DIM, int(11 * s))
+	# --- moldura de luz -------------------------------------------------------
+	var ink0 := Color(INK.r, INK.g, INK.b, 0.0)
+	_fade(Rect2(0.0, 0.0, W, 232.0 * s), Color(INK.r, INK.g, INK.b, 0.93), ink0)
+	_fade(Rect2(0.0, H - 330.0 * s, W, 330.0 * s), ink0,
+		Color(INK.r, INK.g, INK.b, 0.95))
+	_fade(Rect2(0.0, 0.0, 430.0 * s, H), Color(INK.r, INK.g, INK.b, 0.80), ink0, true)
+	_fade(Rect2(W - 430.0 * s, 0.0, 430.0 * s, H), ink0,
+		Color(INK.r, INK.g, INK.b, 0.80), true)
 
-	_draw_oficina(Rect2(r.position.x + 46.0 * s, r.position.y + h - 128.0 * s,
-		w - 92.0 * s, 62.0 * s), s)
+	# --- cabecalho: o carro tem nome, e e ele que manda na tela ---------------
+	_text(Vector2(mx, 62.0 * s), String(st.get("carro", "")).to_upper(),
+		int(44 * s), TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx, 98.0 * s), st.get("ficha", ""), int(16 * s), DIM,
+		HORIZONTAL_ALIGNMENT_LEFT)
+	# O aviso mora no cabecalho, embaixo da ficha: e a ultima coisa que aconteceu
+	# com este carro. No meio da tela ele batia no proprio carro.
+	var aviso: String = st.get("aviso", "")
+	if not aviso.is_empty():
+		_text(Vector2(mx, 128.0 * s), aviso, int(16 * s),
+			RED if aviso.contains("sucata") else AMBER, HORIZONTAL_ALIGNMENT_LEFT)
 
-	# ---- coluna esquerda: os cinco slots ----
-	var lx := r.position.x + 46.0 * s
-	var y := r.position.y + 96.0 * s
-	_micro(Vector2(lx + 44.0 * s, y), "EQUIPADO", DIM, int(11 * s))
-	y += 30.0 * s
-	for linha in st.get("equipadas", []):
-		var slot: String = linha[0]
-		var texto: String = linha[1]
-		var efeito: String = linha[2]
-		var vazio := texto == "-"
-		_text(Vector2(lx, y), slot, int(17 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		_text(Vector2(lx + 126.0 * s, y), "vazio" if vazio else texto, int(19 * s),
-			DIM if vazio else TEXT, HORIZONTAL_ALIGNMENT_LEFT)
-		if not vazio:
-			_text(Vector2(lx + 126.0 * s, y + 21.0 * s), efeito, int(15 * s), DIM,
-				HORIZONTAL_ALIGNMENT_LEFT)
-		y += 42.0 * s
+	var caixa := "%d" % int(st.get("dinheiro", 0))
+	var caixa_w := font.get_string_size(caixa, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		int(32 * s)).x
+	_text(Vector2(W - mx, 64.0 * s), caixa, int(32 * s), TEXT,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	_micro(Vector2(W - mx - caixa_w - 18.0 * s, 64.0 * s), "CAIXA", DIM,
+		int(10 * s), HORIZONTAL_ALIGNMENT_RIGHT)
 
-	# ---- coluna direita: a forma do carro ----
-	var rx := r.position.x + 600.0 * s
-	var by := r.position.y + 96.0 * s
-	_micro(Vector2(rx + 52.0 * s, by), "FORMA DO CARRO", DIM, int(11 * s))
-	by += 34.0 * s
-	by = _barras_banda(rx, by, 210.0 * s, st.get("bandas", [70.0, 70.0, 70.0]), s)
+	# --- coluna esquerda: a forma do carro ------------------------------------
+	var y := 176.0 * s
+	_micro(Vector2(mx, y), "FORMA DO CARRO", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_LEFT)
+	y += 28.0 * s
+	y = _barras_banda(mx, y, 186.0 * s, st.get("bandas", [70.0, 70.0, 70.0]), s, 14.0, 27.0)
 
-	by += 12.0 * s
+	y += 8.0 * s
 	var janela: Vector2 = st.get("janela", Vector2(0.9, 1.02))
 	var detalhes := [
 		"limite termico   %.0f%%" % (float(st.get("heat_limit", 0.8)) * 100.0),
 		"janela de troca   %.0f%%" % ((janela.y - janela.x) * 100.0),
-		"tanque de nitro   %.1fs" % float(st.get("nitro_cap", 6.0)),
+		"tanque   %.1fs em %s" % [float(st.get("nitro_cap", 6.0)),
+			"uma vez" if st.get("formato", "longo") == "longo" else "tres garrafas"],
 	]
 	for d in detalhes:
-		_text(Vector2(rx, by), d, int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		by += 22.0 * s
+		_text(Vector2(mx, y), d, int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		y += 21.0 * s
+	var conj: String = st.get("conjunto", "")
+	if not conj.is_empty():
+		# O conjunto e o unico numero da coluna que o jogador CONQUISTOU: acende.
+		_text(Vector2(mx, y), "conjunto %s ativo" % conj.to_lower(), int(15 * s),
+			AMBER, HORIZONTAL_ALIGNMENT_LEFT)
+		y += 21.0 * s
 
-	# ---- proximo trecho: e a informacao que faz a escolha de pneu existir ----
-	by += 10.0 * s
-	_micro(Vector2(rx + 56.0 * s, by), "PROXIMO TRECHO", DIM, int(11 * s))
-	by += 26.0 * s
+	# A reserva fica com a build, nao com o destino: e peca guardada, e peca e
+	# assunto desta coluna.
+	y += 18.0 * s
+	_micro(Vector2(mx, y), "RESERVA", DIM, int(10 * s), HORIZONTAL_ALIGNMENT_LEFT)
+	var reserva: Array = st.get("reserva", [])
+	if not reserva.is_empty():
+		# A dica mora ao lado do que ela troca, nunca perdida num rodape.
+		_text(Vector2(mx + 96.0 * s, y), "1 / 2 troca", int(12 * s), Color(TEXT, 0.55),
+			HORIZONTAL_ALIGNMENT_LEFT)
+	y += 26.0 * s
+	for i in 2:
+		var cheia: bool = i < reserva.size()
+		_lamp(Vector2(mx + 6.0 * s, y), 5.0 * s, TEXT if cheia else DIM, cheia)
+		_text(Vector2(mx + 22.0 * s, y), "%d  %s" % [i + 1,
+			reserva[i][0] if cheia else "vazia"], int(15 * s),
+			TEXT if cheia else DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		y += 23.0 * s
+
+	# --- coluna direita: para onde voce vai, e o que carrega junto -------------
+	var rx := W - mx
+	y = 176.0 * s
+	_micro(Vector2(rx, y), "PROXIMO TRECHO", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	y += 34.0 * s
 	var ader: float = float(st.get("aderencia", 1.0))
 	var cor_p := TEXT
 	if ader < 0.92:
@@ -624,39 +692,362 @@ func _draw_garagem(s: float) -> void:
 		cor_p = AMBER
 	elif ader > 1.02:
 		cor_p = GREEN
-	_text(Vector2(rx, by), "%s   ·   pneu %s   %+.0f%%"
-		% [String(st.get("piso", "")).to_upper(), st.get("pneu", "misto"),
-			(ader - 1.0) * 100.0], int(17 * s), cor_p, HORIZONTAL_ALIGNMENT_LEFT)
-	by += 20.0 * s
-	_text(Vector2(rx, by), String(st.get("piso_desc", "")), int(13 * s), DIM,
-		HORIZONTAL_ALIGNMENT_LEFT)
-	by += 18.0 * s
+	_text(Vector2(rx, y), String(st.get("piso", "")).to_upper(), int(26 * s), cor_p,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	y += 25.0 * s
+	_text(Vector2(rx, y), "pneu %s   %+.0f%%" % [st.get("pneu", "misto"),
+		(ader - 1.0) * 100.0], int(15 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	y += 21.0 * s
+	_text(Vector2(rx, y), String(st.get("piso_desc", "")), int(12 * s), DIM,
+		HORIZONTAL_ALIGNMENT_RIGHT)
 
-	# ---- reserva ----
-	by += 14.0 * s
-	_micro(Vector2(rx + 40.0 * s, by), "RESERVA", DIM, int(11 * s))
-	by += 28.0 * s
-	var reserva: Array = st.get("reserva", [])
+	y += 40.0 * s
+	_micro(Vector2(rx, y), "PASSIVOS", DIM, int(10 * s), HORIZONTAL_ALIGNMENT_RIGHT)
+	y += 30.0 * s
+	var passivos: Array = st.get("passivos", [])
 	for i in 2:
-		var cheia: bool = i < reserva.size()
-		_lamp(Vector2(rx + 8.0 * s, by), 6.0 * s, TEXT if cheia else DIM, cheia)
-		var rot := "%d  %s" % [i + 1, reserva[i][0] if cheia else "vazia"]
-		_text(Vector2(rx + 26.0 * s, by), rot, int(17 * s),
-			TEXT if cheia else DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		by += 26.0 * s
+		var tem: bool = i < passivos.size()
+		# Raro e frio, comum e da cor da tela: a cor diz a raridade sem escrever.
+		var cor := (COLD if tem and bool(passivos[i][2]) else (TEXT if tem else DIM))
+		_lamp(Vector2(rx - 6.0 * s, y), 5.0 * s, cor, tem)
+		_text(Vector2(rx - 22.0 * s, y), passivos[i][0] if tem else "slot vazio",
+			int(17 * s), cor, HORIZONTAL_ALIGNMENT_RIGHT)
+		if tem:
+			_text(Vector2(rx - 22.0 * s, y + 18.0 * s), passivos[i][1], int(12 * s),
+				DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+		y += 42.0 * s
 
-	# O aviso conta o que aconteceu com a peca substituida ou com o conserto. Sem ele o jogador perde
-	# uma peca para a sucata sem nunca ficar sabendo.
-	var aviso: String = st.get("aviso", "")
-	if not aviso.is_empty():
-		var cor := RED if aviso.contains("sucata") else AMBER
-		_text(Vector2(size.x * 0.5, r.position.y + h - 62.0 * s), aviso, int(17 * s), cor)
+	# --- bandeja das pecas ----------------------------------------------------
+	var bandeja := Rect2(mx * 0.72, H - 254.0 * s, W - mx * 1.44, 228.0 * s)
+	_panel(bandeja, 18.0 * s, Color(INK.r, INK.g, INK.b, 0.88), Color(EDGE, 0.55))
 
+	var dentro := bandeja.grow(-20.0 * s)
+	var vao := 12.0 * s
+	var bw := (dentro.size.x - vao * 6.0) / 7.0
+	var bh := 118.0 * s
+	var equipadas: Array = st.get("equipadas", [])
+	for i in equipadas.size():
+		_baia(Rect2(dentro.position.x + (bw + vao) * i, dentro.position.y, bw, bh),
+			equipadas[i], s)
+
+	_acoes(Rect2(dentro.position.x, dentro.position.y + bh + 24.0 * s,
+		dentro.size.x, 46.0 * s), s)
+
+
+## Uma baia do rack. Vazia e um encaixe escuro com o nome do slot; cheia mostra a
+## marca, a raridade em lampadas da arvore e o que a peca faz -- nessa ordem,
+## porque e nessa ordem que a peca e escolhida.
+func _baia(r: Rect2, linha: Array, s: float) -> void:
+	var slot: String = linha[0]
+	var marca: String = linha[1]
+	var raridade: int = linha[2]
+	var efeito: String = linha[3]
+	var vazio := marca.is_empty()
+
+	draw_colored_polygon(_cham(r, 9.0 * s),
+		Color(0.0, 0.0, 0.0, 0.30 if vazio else 0.42))
+	var loop := _cham(r, 9.0 * s)
+	loop.append(loop[0])
+	draw_polyline(loop, Color(EDGE, 0.20 if vazio else 0.70), 1.4, true)
+
+	var cx := r.position.x + r.size.x * 0.5
+	_micro(Vector2(cx, r.position.y + 17.0 * s), slot.to_upper(), DIM, int(9 * s))
+
+	if vazio:
+		# Encaixe vago: o recorte interno mostra que ali CABE peca.
+		var vaga := Rect2(r.position.x + 16.0 * s, r.position.y + 34.0 * s,
+			r.size.x - 32.0 * s, r.size.y - 52.0 * s)
+		var vl := _cham(vaga, 7.0 * s)
+		vl.append(vl[0])
+		draw_polyline(vl, Color(EDGE, 0.16), 1.2, true)
+		_text(Vector2(cx, vaga.position.y + vaga.size.y * 0.5), "sem peca",
+			int(13 * s), Color(DIM, 0.7))
+		return
+
+	_text(Vector2(cx, r.position.y + 44.0 * s), marca, int(17 * s), TEXT)
+	# Raridade nas lampadas da arvore: uma, duas, tres. Mesma lingua do giro.
+	for i in 3:
+		var acesa: bool = i <= raridade
+		_lamp(Vector2(cx + (i - 1) * 11.0 * s, r.position.y + 66.0 * s), 3.4 * s,
+			AMBER if acesa else DIM, acesa)
+	var linhas := efeito.split("   ", false)
+	var ey := r.position.y + 88.0 * s
+	for i in mini(linhas.size(), 2):
+		_text(Vector2(cx, ey), linhas[i], int(12 * s), DIM)
+		ey += 15.0 * s
+
+
+## A faixa de acao. Cada tecla de conserto carrega a CONDICAO da peca que ela
+## conserta: o preco sozinho nao diz se vale a pena, o desgaste diz.
+func _acoes(r: Rect2, s: float) -> void:
+	var itens: Array = st.get("oficina", [])
+	var x := r.position.x
+	var cy := r.position.y + 16.0 * s
+	for it in itens:
+		var tecla: String = it[0]
+		var rotulo: String = it[1]
+		var custo: int = it[2]
+		var pode: bool = it[3]
+		var urgente: bool = it[4]
+		var gasto: float = float(it[5])
+
+		var cor := DIM
+		if urgente:
+			cor = RED
+		elif custo <= 0:
+			cor = DIM
+		elif pode:
+			cor = TEXT
+		else:
+			cor = Color(RED, 0.60)   # ha orcamento, o caixa e que nao cobre
+
+		_keycap(Rect2(x, cy - 13.0 * s, 26.0 * s, 26.0 * s), tecla, cor, int(15 * s))
+		var tx := x + 36.0 * s
+		_text(Vector2(tx, cy - 7.0 * s), "%s   %s" % [rotulo,
+			("fundido" if urgente else ("ok" if custo <= 0 else str(custo)))],
+			int(15 * s), cor, HORIZONTAL_ALIGNMENT_LEFT)
+		# Desgaste enche na direcao do perigo, igual a barra de calor. O nitro nao
+		# e dano: a barra dele e o tanque, e tanque cheio e frio, nunca vermelho.
+		var br := Rect2(tx, cy + 6.0 * s, 96.0 * s, 4.0 * s)
+		draw_rect(br, Color(0.0, 0.0, 0.0, 0.45))
+		var cheio := clampf(gasto, 0.0, 1.0)
+		if cheio > 0.001:
+			var cor_b := COLD if tecla == "N" else (RED if cheio > 0.66
+				else (AMBER if cheio > 0.33 else Color(TEXT, 0.75)))
+			draw_rect(Rect2(br.position, Vector2(br.size.x * cheio, br.size.y)), cor_b)
+		x += 190.0 * s
+
+	# A acao principal fica sozinha na ponta direita: so existe uma pergunta por
+	# vez na garagem.
 	var travado: bool = bool(st.get("precisa_consertar", false))
-	_text(Vector2(size.x * 0.5, r.position.y + h - 30.0 * s),
-		"motor fundido: conserte para continuar" if travado
-			else "1 / 2 troca com a reserva   ·   ESPACO corre",
-		int(18 * s), RED if travado else DIM)
+	var oferta: Array = st.get("passivo_oferta", [])
+	var dx := r.position.x + r.size.x
+	if travado:
+		_text(Vector2(dx, cy), "motor fundido: conserte para continuar", int(16 * s),
+			RED, HORIZONTAL_ALIGNMENT_RIGHT)
+	elif not oferta.is_empty():
+		_text(Vector2(dx, cy - 8.0 * s), "%s: %s" % [oferta[0], oferta[1]],
+			int(15 * s), COLD if bool(oferta[2]) else TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+		_text(Vector2(dx, cy + 12.0 * s), "1 ou 2 troca   ·   0 deixa na rua",
+			int(13 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	else:
+		var w_txt := font.get_string_size("correr", HORIZONTAL_ALIGNMENT_LEFT, -1,
+			int(17 * s)).x
+		_text(Vector2(dx, cy), "correr", int(17 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+		_keycap(Rect2(dx - w_txt - 92.0 * s, cy - 13.0 * s, 80.0 * s, 26.0 * s),
+			"ESPACO", TEXT, int(13 * s))
+
+
+
+## A vitrine de pecas. Tres baias grandes, do mesmo desenho do rack da garagem:
+## escolher peca e tirar peca da prateleira, e a peca escolhida vai ocupar
+## exatamente uma daquelas baias -- a tela mostra isso antes de acontecer.
+##
+## O preco vem junto. Comprar sem ver o preco nao e decisao, e susto.
+func _draw_oferta(s: float) -> void:
+	var W := size.x
+	var H := size.y
+	var mx := 56.0 * s
+	draw_rect(Rect2(Vector2.ZERO, size), Color(INK.r, INK.g, INK.b, 0.88))
+	var ink0 := Color(INK.r, INK.g, INK.b, 0.0)
+	_fade(Rect2(0.0, 0.0, W, 230.0 * s), Color(INK.r, INK.g, INK.b, 0.60), ink0)
+	_fade(Rect2(0.0, H - 250.0 * s, W, 250.0 * s), ink0,
+		Color(INK.r, INK.g, INK.b, 0.70))
+
+	var paga: bool = bool(st.get("paga", false))
+	_text(Vector2(mx, 88.0 * s), String(st.get("titulo", "")), int(46 * s),
+		AMBER if paga else GREEN, HORIZONTAL_ALIGNMENT_LEFT)
+	var sub := "a antiga vai para a reserva; com a reserva cheia, vira sucata"
+	if bool(st.get("ferro", false)):
+		sub = "peca de graca, e ja vem gasta"
+	elif paga:
+		sub = "o caixa decide: peca comprada sai do dinheiro do conserto"
+	_text(Vector2(mx, 128.0 * s), sub, int(17 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+
+	if paga:
+		var caixa := "%d" % int(st.get("dinheiro", 0))
+		var cw := font.get_string_size(caixa, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			int(32 * s)).x
+		_text(Vector2(W - mx, 90.0 * s), caixa, int(32 * s), TEXT,
+			HORIZONTAL_ALIGNMENT_RIGHT)
+		_micro(Vector2(W - mx - cw - 18.0 * s, 90.0 * s), "CAIXA", DIM, int(10 * s),
+			HORIZONTAL_ALIGNMENT_RIGHT)
+
+	var itens: Array = st.get("oferta", [])
+	var n: int = maxi(itens.size(), 1)
+	var vao := 26.0 * s
+	var bw: float = minf(348.0 * s, (W - 2.0 * mx - vao * (n - 1)) / float(n))
+	var bh := 230.0 * s
+	var x0 := W * 0.5 - (bw * n + vao * (n - 1)) * 0.5
+	var by := 244.0 * s
+	for i in itens.size():
+		_baia_oferta(Rect2(x0 + (bw + vao) * i, by, bw, bh), itens[i], s)
+
+	# O que ja esta no carro, para a troca nao ser as cegas.
+	_text(Vector2(mx, by + bh + 46.0 * s), "equipado: %s" % st.get("equipado", ""),
+		int(15 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	var aviso: String = st.get("oferta_aviso", "")
+	if not aviso.is_empty():
+		_text(Vector2(mx, by + bh + 72.0 * s), aviso, int(16 * s), RED,
+			HORIZONTAL_ALIGNMENT_LEFT)
+
+
+func _baia_oferta(r: Rect2, item: Array, s: float) -> void:
+	var tecla: int = int(item[0])
+	var slot: String = item[1]
+	var marca: String = item[2]
+	var raridade: int = int(item[3])
+	var efeito: String = item[4]
+	var preco: int = int(item[5])
+	var pode: bool = bool(item[6])
+	var no_lugar: String = item[7]
+
+	draw_colored_polygon(_cham(r, 12.0 * s), Color(0.0, 0.0, 0.0, 0.42))
+	var loop := _cham(r, 12.0 * s)
+	loop.append(loop[0])
+	draw_polyline(loop, Color(EDGE, 0.70 if pode else 0.30), 1.5, true)
+
+	var cx := r.position.x + r.size.x * 0.5
+	_keycap(Rect2(r.position.x + 18.0 * s, r.position.y + 18.0 * s, 26.0 * s,
+		26.0 * s), str(tecla), TEXT if pode else Color(RED, 0.6), int(15 * s))
+	_micro(Vector2(cx, r.position.y + 31.0 * s), slot.to_upper(), DIM, int(10 * s))
+
+	_text(Vector2(cx, r.position.y + 82.0 * s), marca, int(24 * s),
+		TEXT if pode else Color(TEXT, 0.45))
+	for i in 3:
+		var acesa: bool = i <= raridade
+		_lamp(Vector2(cx + (i - 1) * 13.0 * s, r.position.y + 106.0 * s), 4.0 * s,
+			AMBER if acesa else DIM, acesa)
+
+	var linhas := efeito.split("   ", false)
+	var ey := r.position.y + 128.0 * s
+	# Duas linhas de efeito, nunca tres: a terceira encostava no que a peca
+	# substitui, e texto espremido contra texto e o pior jeito de comparar peca.
+	for i in mini(linhas.size(), 2):
+		_text(Vector2(cx, ey), linhas[i], int(15 * s), DIM)
+		ey += 21.0 * s
+
+	if not no_lugar.is_empty():
+		_text(Vector2(cx, r.position.y + r.size.y - 54.0 * s),
+			"no lugar de %s" % no_lugar, int(13 * s), Color(AMBER, 0.75))
+
+	if preco > 0:
+		_text(Vector2(cx, r.position.y + r.size.y - 26.0 * s), "%d" % preco,
+			int(26 * s), TEXT if pode else RED)
+	else:
+		_text(Vector2(cx, r.position.y + r.size.y - 26.0 * s), "de graca",
+			int(17 * s), DIM)
+
+
+## Fim de corrida. Nao e cartao: e o momento em que a corrida acabou, e ele se
+## le em tres tempos -- o veredito, por quanto foi, e o que a corrida custou ao
+## carro. A mesma moldura do resto do jogo, a mesma divisao (leitura na esquerda,
+## teclas na direita).
+func _draw_resultado(s: float) -> void:
+	var W := size.x
+	var H := size.y
+	var mx := 56.0 * s
+	var res: Dictionary = st.get("resultado", {})
+	draw_rect(Rect2(Vector2.ZERO, size), Color(INK.r, INK.g, INK.b, 0.88))
+	var ink0 := Color(INK.r, INK.g, INK.b, 0.0)
+	_fade(Rect2(0.0, 0.0, W, 240.0 * s), Color(INK.r, INK.g, INK.b, 0.60), ink0)
+	_fade(Rect2(0.0, H - 260.0 * s, W, 260.0 * s), ink0,
+		Color(INK.r, INK.g, INK.b, 0.70))
+
+	var cor: Color = res.get("cor", TEXT)
+	_text(Vector2(mx, 108.0 * s), String(res.get("veredito", "")), int(76 * s), cor,
+		HORIZONTAL_ALIGNMENT_LEFT)
+
+	var margem: float = float(res.get("margem", 0.0))
+	var sub := "nao terminou"
+	if margem > 0.0:
+		sub = "por %.2fs" % margem
+	if bool(res.get("fundiu", false)):
+		sub = "o motor nao voltou inteiro"
+	elif bool(res.get("travou", false)):
+		sub = "o cambio travou no meio da corrida"
+	_text(Vector2(mx, 152.0 * s), sub, int(20 * s), DIM, HORIZONTAL_ALIGNMENT_LEFT)
+
+	# --- o duelo: duas linhas, tempo grande, vencedor aceso ---
+	var y := 286.0 * s
+	var venceu: bool = bool(res.get("venceu", false))
+	for lado in ["eu", "rival"]:
+		var d: Array = res.get(lado, ["", 0, 0.0])
+		var meu: bool = lado == "eu"
+		var ganhou: bool = meu == venceu
+		var c := TEXT if ganhou else DIM
+		_lamp(Vector2(mx + 7.0 * s, y), 6.0 * s, GREEN if ganhou else DIM, ganhou)
+		_text(Vector2(mx + 26.0 * s, y), String(d[0]), int(26 * s), c,
+			HORIZONTAL_ALIGNMENT_LEFT)
+		_text(Vector2(mx + 26.0 * s, y + 22.0 * s), "%d cv" % int(d[1]), int(14 * s),
+			DIM, HORIZONTAL_ALIGNMENT_LEFT)
+		var t := float(d[2])
+		_text(Vector2(mx + 470.0 * s, y), ("%.2fs" % t) if t > 0.0 else "--",
+			int(34 * s), c, HORIZONTAL_ALIGNMENT_RIGHT)
+		y += 70.0 * s
+
+	# --- a margem: e o que fica na cabeca depois de uma arrancada ---
+	# Duas lampadas numa regua de 1.5s. Corrida de arrancada se lembra pela
+	# distancia na linha, nao pelo cronometro de cada um.
+	if margem > 0.0:
+		_micro(Vector2(mx, 406.0 * s), "MARGEM", DIM, int(10 * s),
+			HORIZONTAL_ALIGNMENT_LEFT)
+		var rr := Rect2(mx + 8.0 * s, 438.0 * s, 300.0 * s, 3.0 * s)
+		draw_rect(rr, Color(EDGE, 0.55))
+		var frac := clampf(margem / 1.0, 0.06, 1.0)
+		_lamp(Vector2(rr.position.x, rr.position.y + 1.5 * s), 6.0 * s, GREEN, true)
+		_lamp(Vector2(rr.position.x + rr.size.x * frac, rr.position.y + 1.5 * s),
+			6.0 * s, RED if margem > 0.6 else AMBER, true)
+
+	# --- o que a corrida custou ao carro ---
+	var rx := W - mx
+	var ry := 286.0 * s
+	for par in [["motor", float(res.get("motor", 0.0))],
+			["cambio", float(res.get("cambio", 0.0))]]:
+		var nome: String = par[0]
+		var v: float = clampf(par[1], 0.0, 1.0)
+		_text(Vector2(rx, ry), nome, int(17 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+		var br := Rect2(rx - 300.0 * s, ry - 6.0 * s, 210.0 * s, 12.0 * s)
+		draw_colored_polygon(_cham(br, 4.0 * s), Color(0.0, 0.0, 0.0, 0.45))
+		if v > 0.001:
+			draw_colored_polygon(_cham(Rect2(br.position,
+				Vector2(br.size.x * v, br.size.y)), 4.0 * s),
+				RED if v > 0.66 else (AMBER if v > 0.33 else Color(TEXT, 0.8)))
+		_text(Vector2(rx - 320.0 * s, ry), "%.0f%%" % (v * 100.0), int(15 * s), DIM,
+			HORIZONTAL_ALIGNMENT_RIGHT)
+		ry += 34.0 * s
+
+	ry += 10.0 * s
+	_text(Vector2(rx, ry), "trocas ruins   %d" % int(res.get("trocas_ruins", 0)),
+		int(15 * s), DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+	ry += 24.0 * s
+	var calor: float = float(res.get("calor", 0.0))
+	_text(Vector2(rx, ry), "calor maximo   %.0f%%" % (calor * 100.0), int(15 * s),
+		RED if calor > 0.95 else DIM, HORIZONTAL_ALIGNMENT_RIGHT)
+
+	# --- o dinheiro, e o que fazer agora ---
+	var by := H - 168.0 * s
+	var sinal := "+" if venceu else "-"
+	_text(Vector2(mx, by), "%s%d" % [sinal, int(res.get("aposta", 0))], int(30 * s),
+		GREEN if venceu else RED, HORIZONTAL_ALIGNMENT_LEFT)
+	_micro(Vector2(mx, by + 26.0 * s), "APOSTA", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx + 150.0 * s, by), "%d" % int(res.get("caixa", 0)), int(30 * s),
+		TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	_micro(Vector2(mx + 150.0 * s, by + 26.0 * s), "CAIXA", DIM, int(10 * s),
+		HORIZONTAL_ALIGNMENT_LEFT)
+	_text(Vector2(mx + 320.0 * s, by), "corrida %d   ·   %d vitorias"
+		% [int(res.get("corrida", 0)), int(res.get("vitorias", 0))], int(15 * s), DIM,
+		HORIZONTAL_ALIGNMENT_LEFT)
+
+	var ky := H - 156.0 * s
+	_text(Vector2(rx, ky), "continua", int(16 * s), TEXT, HORIZONTAL_ALIGNMENT_RIGHT)
+	_keycap(Rect2(rx - 122.0 * s, ky - 13.0 * s, 26.0 * s, 26.0 * s), "R", TEXT,
+		int(15 * s))
+	_text(Vector2(rx, ky + 34.0 * s), "recomeca a sequencia", int(13 * s), DIM,
+		HORIZONTAL_ALIGNMENT_RIGHT)
+	_keycap(Rect2(rx - 178.0 * s, ky + 21.0 * s, 26.0 * s, 26.0 * s), "M", DIM,
+		int(13 * s))
 
 
 ## Cartao de menu / resultado. Hierarquia por escala e cor, sem enfeite.

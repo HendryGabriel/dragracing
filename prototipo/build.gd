@@ -15,6 +15,24 @@ const RESERVA_INICIAL := 2
 var reserva_max := RESERVA_INICIAL
 var reserva: Array = []
 
+## Passivos (GDD 3.3): fora do inventario, dois slots, achados durante a run.
+const PASSIVOS_MAX := 2
+var passivos: Array = []
+
+
+## Guarda o passivo. Cheio, devolve false: quem escolhe qual dos dois cai fora
+## e o jogador, na tela -- nao a ordem em que os itens apareceram.
+func pegar_passivo(p: Passivo) -> bool:
+	if passivos.size() >= PASSIVOS_MAX:
+		return false
+	passivos.append(p)
+	return true
+
+
+func trocar_passivo(i: int, p: Passivo) -> void:
+	if i >= 0 and i < passivos.size():
+		passivos[i] = p
+
 
 func equipar(p: Peca) -> void:
 	pecas[p.slot] = p
@@ -71,13 +89,59 @@ func aplicar(c: Car, bandas_base: Array, piso := "pista") -> void:
 	c.heat_rate = maxf(c.heat_rate, 0.06)
 	# Piso e pneu entram por ultimo: o piso e do trecho, nao da build, e o pneu so
 	# vale contra um piso concreto.
-	c.piso_fases = Piso.fases(piso)
+	c.piso_fases = Piso.fases(piso).duplicate()   # const e read-only; o conjunto Tracao mexe nela
 	c.heat_rate += Piso.calor(piso)
 	c.aderencia = Peca.aderencia(pneu_equipado(), piso)
+	if formato_tanque() == "curtas":
+		c.garrafa = c.nitro_cap / float(Tuning.GARRAFAS)
+	var conj := marca_em_conjunto()
+	if not conj.is_empty():
+		_aplicar_conjunto(c, conj)
+	# Passivos por ultimo: eles dobram a regra que todo o resto ja escreveu.
+	for p in passivos:
+		p.aplicar(c, piso)
 	c.nitro = c.nitro_cap
 
 
+## Bonus de conjunto (GDD 3.4): tres pecas da mesma marca ligam um efeito que nao
+## existe de outra forma. E o que faz PERSEGUIR uma build em vez de pegar sempre o
+## numero maior -- sem ele, nao ha razao nenhuma para recusar uma Epica de marca
+## errada, e escolher peca vira aritmetica.
+const CONJUNTO := 3
+
+func marca_em_conjunto() -> String:
+	var contagem := {}
+	for slot in pecas:
+		var m: String = pecas[slot].marca
+		contagem[m] = int(contagem.get(m, 0)) + 1
+		if contagem[m] >= CONJUNTO:
+			return m
+	return ""
+
+
+func _aplicar_conjunto(c: Car, marca: String) -> void:
+	match marca:
+		"Torque":
+			c.bands[0] *= 1.14          # a largada vira dominio
+		"Alta Rotacao":
+			c.bands[2] *= 1.14          # o topo vira dominio
+		"Quimica":
+			c.mult_desgaste_motor = 0.45  # forcar calor cobra menos
+		"Confiabilidade":
+			c.mult_desgaste_geral = 0.55  # a run inteira dura mais
+		"Tracao":
+			# Ignora a punicao do piso na largada: o unico jeito de correr na lama
+			# como se fosse pista.
+			c.piso_fases[0] = maxf(c.piso_fases[0], 1.0)
+
+
 ## O tipo de pneu equipado, ou o misto de fabrica quando o slot esta vazio.
+func formato_tanque() -> String:
+	if pecas.has("nitro"):
+		return pecas["nitro"].mods.get("formato", "longo")
+	return "longo"
+
+
 func pneu_equipado() -> String:
 	if pecas.has("roda"):
 		return pecas["roda"].mods.get("pneu", "misto")
@@ -86,8 +150,8 @@ func pneu_equipado() -> String:
 
 func _aplicar(c: Car, mods: Dictionary) -> void:
 	for chave in mods:
-		if chave == "pneu":
-			continue   # o pneu nao e numero: entra em aplicar(), contra o piso
+		if chave == "pneu" or chave == "formato":
+			continue   # nao sao numeros: entram em aplicar()
 		var v: float = mods[chave]
 		match chave:
 			"banda_baixa": c.bands[0] += v
@@ -133,6 +197,8 @@ func previa(bandas_base: Array, piso := "pista") -> Dictionary:
 		"nitro_cap": c.nitro_cap,
 		"gear_top": c.gear_top.duplicate(),
 		"pneu": pneu_equipado(),
+		"conjunto": marca_em_conjunto(),
+		"formato": formato_tanque(),
 	}
 
 

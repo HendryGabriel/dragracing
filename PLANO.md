@@ -206,10 +206,35 @@ escreve no próprio.
 
 ---
 
-## Fase 5 — Profundidade
+## Fase 5 — Profundidade ✅ FEITA
 
 Tudo aqui é opcional para o loop existir, e todo item fica melhor quando já há uma run para
 atravessá-lo.
+
+**Medido:**
+- **Conjunto** — 3 peças da mesma marca: 3× Alta Rotação levam a banda alta de 110 para 125.
+  Torque engrossa a baixa, Química poupa o motor, Confiabilidade poupa tudo, Tração ignora a
+  punição do piso na largada.
+- **Passivos** — 2 slots, achados em boxes, evento e chefe de ato (esse garantido). Comuns são
+  percentuais; os raros dobram regra e cada um tem checagem própria: nitro gelado (4s sem
+  calor), câmbio perdoador (engole **um** erro, e só um), cravos (valem **só** na lama).
+- **Tanque** — no mergulho deliberado, longo 29,83s / pico 114% / motor 6%; 3 curtas 29,92s /
+  pico 102% / motor 3%.
+- **Câmbio** — automático 30,72s sem moer transmissão; manual perfeito 29,87s; manual ruim
+  35,75s com 42% de transmissão.
+
+**Correção de rumo na economia.** A checagem 5 afirmava que forçar rende mais dinheiro por
+corrida. Está errado: a aposta cresce com a sequência, então quem dura mais joga por fichas
+maiores e *parece* mais competente só por ter chegado longe. Nenhuma medida de caixa separa
+competência de longevidade. O que a checagem defende agora é o contrário — forçar **não pode**
+render mais por aposta, senão seria almoço grátis (mais vitórias E mais caixa pelo mesmo
+risco). A troca real continua sendo a do GDD: forçar vence mais (64% × 58%) e dura menos
+(15 × 39 corridas).
+
+**A interface virou tela de jogo.** Menu, mapa, garagem e fim de corrida agora compartilham
+uma moldura só: luz caindo das bordas para o centro em degradê, leitura na esquerda, teclas
+na direita, carro na cena. A garagem deixou de ser um painel de linhas e virou o carro no
+meio do quadro com um rack de sete baias embaixo.
 
 - **Bônus de conjunto** (§3.4) — 3 peças da mesma marca. É o que faz perseguir uma build
   em vez de pegar sempre o número maior. Hoje não há razão para recusar uma Épica de marca

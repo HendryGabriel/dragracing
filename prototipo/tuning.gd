@@ -39,6 +39,13 @@ const NITRO_BOOST := 1.75
 ## risco sem premio e ninguem entra nela por vontade propria -- o que mata a
 ## decisao central da fase 3.
 const OVERBOOST := 0.40
+## Tanque dividido: o mesmo nitro em tres garrafas. Nao muda o empurrao -- muda
+## QUANDO voce pode dar. Cada acionamento vale uma garrafa, e a proxima so depois
+## de soltar, o que impede o mergulho unico no overboost.
+const GARRAFAS := 3
+## Tempo morto entre uma garrafa e a proxima. E o preco do formato: o empurrao
+## vem em tres pedacos, com dois buracos no meio -- e o motor esfria neles.
+const GARRAFA_TROCA := 0.5
 const HEAT_RATE := 0.20              # calor/s segurando (tanque cheio = 1.20 de calor)
 const COOL_RATE := 0.18              # calor/s solto
 const HEAT_LIMIT := 0.80             # inicio da faixa vermelha

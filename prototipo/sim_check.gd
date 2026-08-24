@@ -84,6 +84,7 @@ func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v * 31
 	var consertos := 0
+	var apostado := 0
 	while not g.acabou and g.corridas < 60:
 		var c := Car.new()
 		c.rng.seed = seed_v * 1000 + g.corridas
@@ -135,6 +136,7 @@ func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
 			riv.step(DT)
 		var venceu := c.finished_at > 0.0 and (riv.finished_at <= 0.0
 			or c.finished_at <= riv.finished_at)
+		apostado += g.aposta()
 		g.recolher(c, venceu, carro)
 		if venceu:
 			b.equipar_guardando(Peca.sortear(rng))
@@ -149,7 +151,8 @@ func _carreira(estilo: String, seed_v: int, _ref: float) -> Dictionary:
 			consertos += 1
 		g.reabastecer(c.nitro_cap)
 	return {"corridas": g.corridas, "vitorias": g.vitorias, "motor": g.motor,
-		"cambio": g.transmissao, "dinheiro": g.dinheiro, "consertos": consertos}
+		"cambio": g.transmissao, "dinheiro": g.dinheiro, "consertos": consertos,
+		"apostado": apostado}
 
 
 func _media(estilo: String, ref: float) -> Dictionary:
@@ -158,6 +161,7 @@ func _media(estilo: String, ref: float) -> Dictionary:
 	var cambio := 0.0
 	var caixa := 0.0
 	var cons := 0.0
+	var apost := 0.0
 	var n := 12
 	for i in n:
 		var r := _carreira(estilo, i + 1, ref)
@@ -166,8 +170,9 @@ func _media(estilo: String, ref: float) -> Dictionary:
 		cambio += r.cambio
 		caixa += r.dinheiro
 		cons += r.consertos
+		apost += r.apostado
 	return {"corridas": cs / n, "vitorias": vs / n, "cambio": cambio / n,
-		"dinheiro": caixa / n, "consertos": cons / n}
+		"dinheiro": caixa / n, "consertos": cons / n, "apostado": apost / n}
 
 
 func _initialize() -> void:
@@ -299,15 +304,25 @@ func _initialize() -> void:
 		push_error("[5] Nem o ganancioso conserta: a oficina nao entrou no loop")
 		fails += 1
 
-	# A troca economica da fase 1: forcar RENDE MAIS POR CORRIDA, jogar seguro DURA
-	# MAIS CORRIDAS. Comparar caixa final absoluto seria errado -- quem corre mais
-	# vezes acumula mais tempo, nao mais competencia.
-	var rende_gan: float = est["ganancioso"].dinheiro / maxf(est["ganancioso"].corridas, 1.0)
-	var rende_cau: float = est["cauteloso"].dinheiro / maxf(est["cauteloso"].corridas, 1.0)
-	print("caixa por corrida: ganancioso %.1f   cauteloso %.1f" % [rende_gan, rende_cau])
-	if rende_gan <= rende_cau:
-		push_error("[5] Forcar nao rende: ganancioso %.1f por corrida, cauteloso %.1f"
-			% [rende_gan, rende_cau])
+	# A troca economica: forcar VENCE MAIS e DURA MENOS -- e so isso. Nao existe
+	# "forcar tambem rende mais dinheiro": a aposta cresce com a sequencia, entao
+	# quem dura mais joga por fichas maiores, e nenhuma medida de caixa (final,
+	# por corrida ou por aposta) separa competencia de longevidade. O que esta
+	# checado aqui e o contrario: forcar NAO pode render mais por aposta, senao
+	# forcar seria almoco gratis -- mais vitorias e mais caixa pelo mesmo risco.
+	var rende_gan: float = (est["ganancioso"].dinheiro - Tuning.DINHEIRO_INICIAL) 		/ maxf(est["ganancioso"].apostado, 1.0)
+	var rende_cau: float = (est["cauteloso"].dinheiro - Tuning.DINHEIRO_INICIAL) 		/ maxf(est["cauteloso"].apostado, 1.0)
+	print("retorno sobre o apostado: ganancioso %+.0f%%   cauteloso %+.0f%%"
+		% [rende_gan * 100.0, rende_cau * 100.0])
+	if rende_gan > rende_cau:
+		push_error("[5] Forcar e almoco gratis: rende %+.0f%% contra %+.0f%% do cauteloso"
+			% [rende_gan * 100.0, rende_cau * 100.0])
+		fails += 1
+	# E o outro lado: nenhum estilo pode virar maquina de dinheiro, ou a oficina
+	# deixa de ser decisao e a run vira passeio.
+	if rende_cau > 0.35:
+		push_error("[5] Economia estourada: o cauteloso rende %+.0f%% por aposta"
+			% (rende_cau * 100.0))
 		fails += 1
 
 	# ---------- checagem 6: peca muda a FORMA da corrida ----------
@@ -536,6 +551,152 @@ meta: elenco comeca com %d carros; perder uma run abriu %d coisa(s)"
 		fails += 1
 	print("meta: apos os marcos, %d carros e %d reservas; save volta igual"
 		% [pr.liberados.size(), pr.reservas])
+
+	# ---------- checagem 13: cambio, conjunto e formato do tanque ----------
+	# As tres escolhas de build da fase 5 tem que APARECER no numero, senao sao
+	# texto de menu. Cada uma paga um preco e ganha uma coisa.
+
+	# Automatico: troca sempre "boa", nunca "perfeita", e por isso nunca mói a
+	# transmissao (GDD 2.4). Manual mal jogado mói.
+	var bandas_p: Array = Cars.bandas("golf gti")
+	var auto_c := _make(bandas_p, 7)
+	auto_c.cambio_auto = true
+	while auto_c.finished_at < 0.0 and auto_c.time < 120.0:
+		if auto_c.rpm() >= Tuning.AI_SHIFT_POINT:
+			auto_c.shift_up()
+		auto_c.step(DT)
+	var man_c := _make(bandas_p, 7)
+	while man_c.finished_at < 0.0 and man_c.time < 120.0:
+		if man_c.rpm() >= 0.72:   # troca cedo demais: erro de piloto
+			man_c.shift_up()
+		man_c.step(DT)
+	if auto_c.desgaste_transmissao > 0.0:
+		push_error("[13] Automatico gastou transmissao: %.2f" % auto_c.desgaste_transmissao)
+		fails += 1
+	if man_c.desgaste_transmissao <= 0.0:
+		push_error("[13] Manual errado nao gastou transmissao: o risco sumiu")
+		fails += 1
+	if auto_c.finished_at >= man_c.finished_at:
+		push_error("[13] Manual mal jogado bateu o automatico: nao ha piso a proteger")
+		fails += 1
+	var perf := _run(bandas_p, 0.96, 0.55, 0.999, 7)
+	if perf.t >= auto_c.finished_at:
+		push_error("[13] Manual perfeito nao bate o automatico: o teto sumiu")
+		fails += 1
+	print("
+cambio: automatico %.2fs sem gastar transmissao; manual perfeito %.2fs, manual ruim %.2fs (%.0f%% de transmissao)"
+		% [auto_c.finished_at, perf.t, man_c.finished_at,
+			man_c.desgaste_transmissao * 100.0])
+
+	# Conjunto: 3 pecas da mesma marca mudam a corrida (GDD 3.4).
+	var b_solto := Build.new()
+	var b_conj := Build.new()
+	for slot in ["motor", "turbo", "escape"]:
+		b_conj.equipar(Peca.gerar(slot, "Alta Rotacao", 0))
+		b_solto.equipar(Peca.gerar(slot, "Alta Rotacao", 0))
+	if b_conj.marca_em_conjunto() != "Alta Rotacao":
+		push_error("[13] Tres pecas da mesma marca nao formaram conjunto")
+		fails += 1
+	# O mesmo, com uma peca trocada de marca: nao pode dar conjunto.
+	b_solto.equipar(Peca.gerar("escape", "Torque", 0))
+	if not b_solto.marca_em_conjunto().is_empty():
+		push_error("[13] Conjunto ativou com marcas misturadas")
+		fails += 1
+	var c_conj := Car.new()
+	var c_solto := Car.new()
+	b_conj.aplicar(c_conj, bandas_p)
+	b_solto.aplicar(c_solto, bandas_p)
+	if c_conj.bands[2] <= c_solto.bands[2]:
+		push_error("[13] Conjunto Alta Rotacao nao empurrou a banda alta")
+		fails += 1
+	print("conjunto: 3x Alta Rotacao levam a banda alta de %.0f para %.0f"
+		% [c_solto.bands[2], c_conj.bands[2]])
+
+	# Tanque: o formato nao muda o empurrao, muda ate onde da para mergulhar
+	# (GDD 2.3). Com o tanque longo o boost e continuo, o calor sobe sem parar e
+	# o overboost fica ao alcance -- junto com o dado de fundir. As tres garrafas
+	# cortam sozinhas: o pico para num teto proprio e o motor sofre menos.
+	var mergulho := {}
+	for formato in ["longo", "curtas"]:
+		var c := _make(bandas_p, 3)
+		if formato == "curtas":
+			c.garrafa = c.nitro_cap / float(Tuning.GARRAFAS)
+		while c.finished_at < 0.0 and c.time < 120.0:
+			if c.rpm() >= Tuning.AI_SHIFT_POINT:
+				c.shift_up()
+			# Mergulho deliberado: fundo na faixa vermelha, parando antes de fundir.
+			c.nitro_on = c.nitro > 0.0 and c.pos > Tuning.RACE_DISTANCE * 0.55 				and c.heat < Tuning.HEAT_MAX - 0.01
+			c.step(DT)
+		mergulho[formato] = c
+	var lg: Car = mergulho["longo"]
+	var ct: Car = mergulho["curtas"]
+	if lg.finished_at >= ct.finished_at:
+		push_error("[13] Tanque longo nao tem teto proprio: o formato nao e escolha")
+		fails += 1
+	if ct.heat_pico >= lg.heat_pico:
+		push_error("[13] As garrafas nao seguram o pico: %.0f%% contra %.0f%%"
+			% [ct.heat_pico * 100.0, lg.heat_pico * 100.0])
+		fails += 1
+	if ct.desgaste_motor >= lg.desgaste_motor:
+		push_error("[13] As garrafas nao poupam o motor: o formato so tem custo")
+		fails += 1
+	print("tanque no mergulho: longo %.2fs, pico %.0f%%, motor %.0f%%; 3 curtas %.2fs, pico %.0f%%, motor %.0f%%"
+		% [lg.finished_at, lg.heat_pico * 100.0, lg.desgaste_motor * 100.0,
+			ct.finished_at, ct.heat_pico * 100.0, ct.desgaste_motor * 100.0])
+
+	# Passivo raro tem que DOBRAR REGRA, nao dar mais um percentual (GDD 3.3).
+	var b_pas := Build.new()
+	for id in ["coletor", "comando", "radiador"]:
+		if b_pas.pegar_passivo(Passivo.por_id(id)):
+			pass
+	if b_pas.passivos.size() != Build.PASSIVOS_MAX:
+		push_error("[13] Os passivos nao respeitam os dois slots: %d guardados"
+			% b_pas.passivos.size())
+		fails += 1
+
+	# Nitro gelado: os primeiros segundos de boost saem sem calor nenhum.
+	var frio := _make(bandas_p, 5)
+	Passivo.por_id("nitro_frio").aplicar(frio, "pista")
+	for i_ in int(Passivo.NITRO_FRIO / DT) - 1:
+		frio.nitro_on = true
+		frio.step(DT)
+	if frio.heat > 0.0:
+		push_error("[13] Nitro gelado esquentou: %.0f%%" % (frio.heat * 100.0))
+		fails += 1
+	for i_ in 10:
+		frio.step(DT)
+	if frio.heat <= 0.0:
+		push_error("[13] Nitro gelado nunca acaba: a regra virou permanente")
+		fails += 1
+
+	# Cambio perdoador: engole UM erro por corrida, e so um.
+	var perd := _make(bandas_p, 5)
+	Passivo.por_id("perdao").aplicar(perd, "pista")
+	perd.shift_up()   # rpm baixo na largada = troca ruim
+	if perd.desgaste_transmissao > 0.0:
+		push_error("[13] O perdao nao cobriu o primeiro erro")
+		fails += 1
+	perd.shift_lock = 0.0
+	perd.shift_up()
+	if perd.desgaste_transmissao <= 0.0:
+		push_error("[13] O perdao cobriu o segundo erro tambem: virou imunidade")
+		fails += 1
+
+	# Cravos escondidos: a lama larga como asfalto -- e so na lama.
+	var b_cravo := Build.new()
+	b_cravo.pegar_passivo(Passivo.por_id("cravos"))
+	var na_lama := Car.new()
+	b_cravo.aplicar(na_lama, bandas_p, "lama")
+	if na_lama.piso_fases[0] < 1.0:
+		push_error("[13] Cravos nao salvaram a largada na lama: %.2f" % na_lama.piso_fases[0])
+		fails += 1
+	var no_deserto := Car.new()
+	b_cravo.aplicar(no_deserto, bandas_p, "deserto")
+	if no_deserto.piso_fases[0] >= 1.0:
+		push_error("[13] Cravos consertaram um piso que nao e lama: a regra vazou")
+		fails += 1
+	print("passivos: 2 slots; nitro gelado dura %.0fs; perdao cobre 1 erro; cravos so valem na lama"
+		% Passivo.NITRO_FRIO)
 
 	# ---------- checagem 4: a cena roda uma corrida inteira sem quebrar ----------
 	fails += _scene_smoke()

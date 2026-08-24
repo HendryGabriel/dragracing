@@ -54,6 +54,14 @@ O nitro **não** é um empurrão de clique. É um recurso contínuo com risco:
 - **1 tanque longo** — aposta única, o calor acumula sem alívio. Pico alto, risco alto.
 - **3 garrafas curtas** — janelas táticas, o motor esfria entre elas. Pico menor, risco controlado.
 
+O formato **não** mexe no empurrão: mexe em até onde dá para mergulhar. A garrafa corta
+sozinha quando acaba, e a próxima só engata depois de meio segundo de troca — segurar o
+botão não adianta, e dar tapinha também não, porque o buraco é do carro e não do dedo. Medido
+no mergulho deliberado (soltar só na borda de fundir): o tanque longo faz **29,83s** com pico
+de **114%** de calor e 6% de motor moído; as três garrafas fazem **29,92s** com pico de
+**102%** e 3%. Nove centésimos de teto contra metade do desgaste e um pico que não alcança a
+zona de fundir — é essa a troca, e ela é checada a cada rodada do `sim_check`.
+
 ### 2.4 Câmbio manual vs. automático
 
 **Escolhido antes da run**, vale para a run inteira.
@@ -64,6 +72,10 @@ O nitro **não** é um empurrão de clique. É um recurso contínuo com risco:
 | **Automático** | Menor (nunca erra, nunca acerta a janela perfeita) | **Zero desgaste de transmissão** |
 
 Automático é acessibilidade real: o jogador casual joga a run inteira nele e funciona.
+
+Medido: automático faz **30,72s** sem moer nada; manual perfeito faz **29,87s**; manual mal
+jogado faz **35,75s** e chega com **42%** da transmissão consumida. O automático é o piso alto
+e o manual é o teto — que é exatamente o que a tabela promete.
 
 > **Nota de balanceamento:** como a escolha é travada antes da run, quem escolheu manual e chega com a transmissão em estado Crítico não tem válvula de escape. Compensar com janela perfeita mais generosa no manual, e permitir troca de modo na **Oficina** para evitar que a run vire sentença.
 
@@ -371,9 +383,18 @@ garagem, e peça antiga vira sucata quando a reserva está cheia. A **garagem** 
 a build fica legível — as três bandas como barras, que é a forma do carro, não a lista de
 peças.
 
-Falta de §4: turbo e pneu (dependem de pisos) e o conserto (depende de economia).
-Falta de §3: bônus de conjunto, itens passivos, e a expansão do inventário de 2 para 6
-espaços (depende dos desafios de meta-progressão).
+Implementado também: **§5 inteiro** (pisos como perfil de fase, pneu contra piso),
+**§6** (mapa ramificado de 3 atos com reputação travando o chefe), **§7** (save e
+meta-progressão por marcos, inclusive derrota) e **§3 inteiro** — bônus de conjunto,
+formato do tanque, câmbio automático e os dois itens passivos, com os raros dobrando regra
+(nitro gelado, câmbio perdoador, cravos escondidos, marcha curta).
+
+**A interface é tela de jogo, não formulário.** Menu, mapa, garagem e fim de corrida
+compartilham a mesma moldura: a luz cai das bordas para o centro em degradê (nunca uma
+faixa com borda dura), a leitura fica na esquerda, as teclas na direita, e o carro fica na
+cena — na garagem ele é o objeto no meio do quadro, e o painel abre em volta dele. As sete
+peças viram um rack de baias com a raridade nas lâmpadas da árvore de largada, a mesma
+lâmpada do giro e do limite térmico.
 
 O caminho peça → número → forma da corrida está medido: sobre o **mesmo** motor base, peças
 de torque abrem +54m aos 5s e peças de alta rotação rendem +37 km/h no topo. É essa
@@ -381,10 +402,10 @@ diferença que o pilar 1 exige, e ela é checada a cada rodada do `sim_check`.
 
 ## 8.5 Ordem de construção
 
-O que ainda falta, em que ordem e por quê, está em [PLANO.md](PLANO.md). Resumo: economia e
-piso primeiro porque destravam quase todo o resto e são pequenos; depois o mapa, que é a
-espinha; depois save e meta-progressão; e por último a profundidade (bônus de conjunto,
-passivos, câmbio automático, formato do tanque).
+As cinco fases de [PLANO.md](PLANO.md) estão feitas: economia e oficina, piso/pneu/turbo, o
+mapa, save e meta-progressão, e a profundidade (bônus de conjunto, passivos, câmbio
+automático, formato do tanque). O que sobrou está listado como dívida no próprio PLANO.md —
+âncora de roda em cinco fotos, escala por carro, e a revisão dos cavalos de fábrica.
 
 ## 9. Pendências
 

@@ -24,11 +24,13 @@ godot --path prototipo
 |---|---|
 | setas · `1` `2` `3` | escolher o carro no menu |
 | `ESPAÇO` (no menu) | confirmar e começar |
+| `A` (no menu) | câmbio manual ou automático — travado para a run inteira |
 | `ESPAÇO` (segurar/soltar) | largada — solte com o ponteiro na faixa verde |
 | `ESPAÇO` (apertar) | trocar de marcha — acerte a faixa verde do giro |
 | `SHIFT` (segurar) | nitro — acelera e esquenta o motor |
 | `1` `2` `3` | escolher a peça na tela de recompensa |
 | `1` `2` | na garagem, trocar com a reserva |
+| `1` `2` `0` | com passivo achado e os dois slots cheios: qual sai, ou deixa na rua |
 | `M` `C` `N` | na garagem, consertar motor / câmbio / reabastecer nitro |
 | `ESPAÇO` (na garagem) | ir para a próxima corrida |
 | `R` | continuar · `M` menu · `ESC` sair |
@@ -174,10 +176,16 @@ sombra do arco em vez de competir com a lataria.
 O HUD vive em [`hud.gd`](hud.gd), desenhado em modo imediato (`_draw`), alimentado por
 `race.gd` a cada quadro via `feed()`. Não há árvore de nós de UI: um `Control` só.
 
-A assinatura é a **árvore de largada**. A mesma lâmpada aparece nos três momentos de
-timing do jogo — árvore na largada, régua de giro na corrida, e a régua inteira acende
-verde dentro da janela de troca. Paleta quente, recortes chanfrados, e o nitro como
+A assinatura é a **árvore de largada**. A mesma lâmpada aparece em todo momento de timing
+e de estado do jogo — árvore na largada, régua de giro na corrida, raridade da peça no rack
+da garagem, passivo raro, nó do mapa. Paleta quente, recortes chanfrados, e o nitro como
 único elemento frio (o oposto do calor). Fonte: Bahnschrift, via `SystemFont`.
+
+**Menu, mapa, garagem e fim de corrida usam uma moldura só:** nenhuma caixa centralizada, a
+luz caindo das bordas para o centro em degradê (faixa com borda dura vira emenda visível), a
+leitura na esquerda, as teclas na direita — desenhadas como teclas, com o mesmo chanfro do
+resto — e a cena viva atrás. Menu e garagem miram o carro; o mapa e o placar escurecem a
+cena para a rota e os números lerem primeiro.
 
 ## Ajustar
 
@@ -261,16 +269,18 @@ escolha custar: com espaço infinito você nunca abre mão de nada.
 
 ## Garagem
 
-Entre corridas você passa pela garagem ([`hud.gd`](hud.gd), `_draw_garagem`). Ela não é
-uma lista de peças: o que precisa ser lido ali é a **forma do carro** — três barras de
-banda em que um motor de torque desenha uma escada descendo e um de alta rotação a mesma
-escada subindo. A lista de slots é o detalhe; a forma é a leitura.
+Entre corridas você passa pela garagem ([`hud.gd`](hud.gd), `_draw_garagem`). Ela não é uma
+lista de peças: é o **carro no meio do quadro** com o painel aberto em volta. À esquerda a
+forma do carro — três barras de banda em que um motor de torque desenha uma escada descendo
+e um de alta rotação a mesma escada subindo. À direita o próximo trecho e os passivos.
+Embaixo, o rack: sete baias, marca, raridade em lâmpadas e o que a peça faz.
 
-`1`/`2` trocam com a reserva. Como toda peça carrega o slot a que pertence, a troca nunca
-é ambígua e não precisa escolher alvo.
+Cada tecla de conserto carrega a **condição** da peça que ela conserta — preço sozinho não
+decide nada, estado decide. `1`/`2` trocam com a reserva; como toda peça carrega o slot a
+que pertence, a troca nunca é ambígua e não precisa escolher alvo.
 
 ## Fora do escopo (de propósito)
 
-Turbo e pneu (dependem de pisos), pisos, câmbio automático, mapa, loja, bônus de
-conjunto, itens passivos, meta-progressão, economia e conserto. Tudo isso está desenhado no GDD e só vale
-construir depois que as três perguntas do §8.3 tiverem resposta jogando.
+Som, chefes com identidade própria, conteúdo de evento além da aposta seca, e arte de
+cenário. O resto do GDD está construído — as cinco fases de [PLANO.md](../PLANO.md) estão
+feitas, e a dívida que sobrou está listada lá.

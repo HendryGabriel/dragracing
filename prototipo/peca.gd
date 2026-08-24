@@ -50,12 +50,15 @@ const RECEITAS := {
 		"Confiabilidade": {"cool_rate": 0.040, "heat_limit": 0.040},
 		"Tracao":         {"cool_rate": 0.035},
 	},
+	# O FORMATO do tanque e escolha de build (GDD 2.3): um tanque longo e aposta
+	# unica com pico alto, tres garrafas curtas sao janelas taticas com pico menor
+	# e risco controlado. O formato nao escala com raridade -- so o tamanho.
 	"nitro": {
-		"Torque":         {"nitro_cap": 1.5},
-		"Alta Rotacao":   {"nitro_cap": 2.0},
-		"Quimica":        {"nitro_cap": 3.0, "heat_rate": 0.050},
-		"Confiabilidade": {"nitro_cap": 1.0, "heat_rate": -0.040},
-		"Tracao":         {"nitro_cap": 1.2},
+		"Torque":         {"nitro_cap": 1.5, "formato": "longo"},
+		"Alta Rotacao":   {"nitro_cap": 2.0, "formato": "longo"},
+		"Quimica":        {"nitro_cap": 3.0, "heat_rate": 0.050, "formato": "longo"},
+		"Confiabilidade": {"nitro_cap": 1.0, "formato": "curtas"},
+		"Tracao":         {"nitro_cap": 1.2, "formato": "curtas"},
 	},
 	# Roda e a unica peca cujo efeito depende do PISO: e um perfil, nao um numero.
 	# Nao existe "o melhor pneu" -- existe o pneu certo para o proximo trecho.
@@ -137,6 +140,9 @@ func resumo() -> String:
 		var rotulo: String = ROTULOS.get(chave, chave)
 		if chave == "pneu":
 			partes.append("pneu %s" % v)
+			continue
+		if chave == "formato":
+			partes.append("tanque %s" % ("longo" if v == "longo" else "3 curtas"))
 			continue
 		if chave.begins_with("banda"):
 			partes.append("%+.0f %s" % [v, rotulo])

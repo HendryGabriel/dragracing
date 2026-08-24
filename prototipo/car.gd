@@ -19,6 +19,23 @@ var nitro_cap := Tuning.NITRO_CAPACITY
 ## e onde ele decide. Os dois entram por Build.aplicar.
 var piso_fases: Array = [1.0, 1.0, 1.0]
 var aderencia := 1.0
+## Multiplicadores de desgaste, mexidos por bonus de conjunto (GDD 3.4).
+var mult_desgaste_motor := 1.0
+var mult_desgaste_geral := 1.0
+## Cambio automatico (GDD 2.4): nunca erra, nunca acerta a janela perfeita, e por
+## isso NUNCA desgasta a transmissao. Teto menor, piso mais alto.
+var cambio_auto := false
+## Formato do tanque (GDD 2.3). garrafa > 0 = tanque dividido: cada acionamento
+## vale no maximo esse tempo, e a proxima garrafa so depois de soltar o botao.
+var garrafa := 0.0
+var _na_garrafa := 0.0
+var _recarga := 0.0
+## Itens passivos (GDD 3.3). Nao desgastam e nao ocupam slot -- so dobram regra.
+var nitro_frio := 0.0        # segundos de nitro que ainda saem sem esquentar
+var perdao_troca := false    # engole o desgaste da primeira troca ruim
+var _perdao_usado := false
+## Pico de calor da corrida: e o pico que decide risco, nao o calor na linha.
+var heat_pico := 0.0
 
 var pos := 0.0
 var speed := 0.0
@@ -90,6 +107,13 @@ func shift_up() -> String:
 	if travado:
 		return ""
 	var r := rpm()
+	if cambio_auto:
+		# Sempre "boa": o automatico troca certo, nunca perfeito, e nao mói nada.
+		last_shift = "boa"
+		shift_lock = Tuning.SHIFT_TIME_GOOD
+		gear += 1
+		last_shift_at = time
+		return last_shift
 	if r >= janela.x and r <= janela.y:
 		last_shift = "PERFEITA"
 		shift_lock = Tuning.SHIFT_TIME_PERFECT
@@ -104,13 +128,20 @@ func shift_up() -> String:
 		bad_shifts += 1
 		# A acao que gasta e a acao que pode quebrar: o dado da transmissao so e
 		# rolado aqui, no erro de troca. Quem nao erra nunca quebra o cambio.
+		if perdao_troca and not _perdao_usado:
+			# O perdao cobre o erro inteiro: nem dado, nem desgaste.
+			_perdao_usado = true
+			gear += 1
+			last_shift_at = time
+			return last_shift
 		if rng.randf() < Tuning.TRANS_BREAK * desgaste_transmissao:
 			travado = true
 			last_shift = "CAMBIO QUEBROU"
 			desgaste_transmissao = 1.0
 			last_shift_at = time
 			return last_shift
-		desgaste_transmissao = minf(1.0, desgaste_transmissao + Tuning.TRANS_WEAR)
+		desgaste_transmissao = minf(1.0,
+			desgaste_transmissao + Tuning.TRANS_WEAR * mult_desgaste_geral)
 	gear += 1
 	last_shift_at = time
 	return last_shift
@@ -141,21 +172,36 @@ func step(dt: float) -> void:
 			var w := 1.0 - time / Tuning.LAUNCH_DURATION
 			a *= lerpf(1.0, launch_mult, w)
 
-	if nitro_on and nitro > 0.0 and not blown:
+	if _recarga > 0.0:
+		_recarga -= dt
+	var soprando := nitro_on and nitro > 0.0 and not blown and _recarga <= 0.0
+	if soprando:
 		# Quanto mais fundo na faixa vermelha, mais forte o empurrao. E o premio que
 		# torna o risco uma escolha em vez de um erro.
 		var over := clampf((heat - heat_limit)
 			/ (Tuning.HEAT_MAX - heat_limit), 0.0, 1.0)
 		a *= Tuning.NITRO_BOOST * (1.0 + Tuning.OVERBOOST * over)
 		nitro = maxf(0.0, nitro - dt)
-		heat += heat_rate * dt
+		if nitro_frio > 0.0:
+			nitro_frio -= dt
+		else:
+			heat += heat_rate * dt
+		if garrafa > 0.0:
+			_na_garrafa += dt
+			if _na_garrafa >= garrafa:
+				# Garrafa vazia: troca. Segurar o botao nao adianta, e tapinha
+				# tambem nao -- o buraco e do carro, nao do dedo.
+				_na_garrafa = 0.0
+				_recarga = Tuning.GARRAFA_TROCA
 	else:
 		heat -= cool_rate * dt
 	heat = clampf(heat, 0.0, 2.0)
+	heat_pico = maxf(heat_pico, heat)
 
 	# Turbo: a acao que gasta e segurar boost, e e nela que o dado rola.
-	if nitro_on and not blown and not turbo_quebrado:
-		desgaste_turbo = minf(1.0, desgaste_turbo + Tuning.TURBO_WEAR * dt)
+	if soprando and not turbo_quebrado:
+		desgaste_turbo = minf(1.0,
+			desgaste_turbo + Tuning.TURBO_WEAR * dt * mult_desgaste_geral)
 		if rng.randf() < Tuning.TURBO_BREAK * desgaste_turbo * dt:
 			turbo_quebrado = true
 
@@ -173,7 +219,8 @@ func step(dt: float) -> void:
 			blown = true
 		elif heat > heat_limit:
 			# Forcar o calor gasta o motor E rola o dado, na mesma acao.
-			desgaste_motor = minf(1.0, desgaste_motor + Tuning.MOTOR_WEAR * dt)
+			desgaste_motor = minf(1.0, desgaste_motor
+				+ Tuning.MOTOR_WEAR * dt * mult_desgaste_motor * mult_desgaste_geral)
 			_roll_t += dt
 			while _roll_t >= Tuning.BLOW_ROLL:
 				_roll_t -= Tuning.BLOW_ROLL
